@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}Email Reminder System{{end}}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{block "head" .}}{{end}}
+</head>
+<body>
+    {{if .IsAuthenticated}}
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="/">Email Reminder System</a>
+            </div>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">Hatırlatıcılar</a>
+                <a href="/settings" class="nav-link">SMTP Ayarları</a>
+                <form method="POST" action="/logout" class="nav-logout">
+                    <button type="submit" class="btn-link">Çıkış Yap</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+    {{end}}
+
+    <main class="main-content">
+        {{block "content" .}}{{end}}
+    </main>
+
+    {{if .IsAuthenticated}}
+    <footer class="footer">
+        <div class="footer-container">
+            <p>&copy; 2026 Email Reminder System. Tüm hakları saklıdır.</p>
+        </div>
+    </footer>
+    {{end}}
+
+    <script src="/static/js/app.js"></script>
+    {{block "scripts" .}}{{end}}
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMTP Ayarları - Email Reminder System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SMTP Ayarları</h1>
+            <div class="header-actions">
+                <a href="/" class="btn-secondary">Hatırlatıcılara Dön</a>
+                <form method="POST" action="/logout" style="display: inline;">
+                    <button type="submit" class="btn-secondary">Çıkış Yap</button>
+                </form>
+            </div>
+        </header>
+
+        {{if .Success}}
+        <div class="success-message">
+            {{if eq .Success "updated"}}
+                SMTP ayarları başarıyla güncellendi!
+            {{else if eq .Success "test_ok"}}
+                ✓ SMTP bağlantı testi başarılı! Ayarlar doğru çalışıyor.
+            {{end}}
+        </div>
+        {{end}}
+
+        {{if .Error}}
+        <div class="error-message">
+            {{.Error}}
+        </div>
+        {{end}}
+
+        <div class="form-container">
+            <form method="POST" action="/settings">
+                <div class="form-group">
+                    <label for="host">SMTP Sunucusu *</label>
+                    <input type="text" id="host" name="host" value="{{if .Settings}}{{.Settings.Host}}{{end}}" required placeholder="smtp.gmail.com">
+                    <small>E-posta sağlayıcınızın SMTP sunucu adresi</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="port">Port *</label>
+                    <input type="number" id="port" name="port" value="{{if .Settings}}{{.Settings.Port}}{{else}}587{{end}}" required min="1" max="65535">
+                    <small>Genellikle 587 (TLS) veya 465 (SSL)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="username">Kullanıcı Adı *</label>
+                    <input type="text" id="username" name="username" value="{{if .Settings}}{{.Settings.Username}}{{end}}" required>
+                    <small>SMTP kimlik doğrulama kullanıcı adı</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Şifre *</label>
+                    <input type="password" id="password" name="password" value="{{if .Settings}}{{.Settings.Password}}{{end}}" {{if not .Settings}}required{{end}}>
+                    <small>{{if .Settings}}Değiştirmek için yeni şifre girin, boş bırakırsanız mevcut şifre korunur{{else}}SMTP kimlik doğrulama şifresi{{end}}</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="from_email">Gönderen E-posta *</label>
+                    <input type="email" id="from_email" name="from_email" value="{{if .Settings}}{{.Settings.FromEmail}}{{end}}" required>
+                    <small>E-postaların gönderileceği adres</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="from_name">Gönderen Adı</label>
+                    <input type="text" id="from_name" name="from_name" value="{{if .Settings}}{{.Settings.FromName}}{{end}}">
+                    <small>E-postalarda görünecek gönderen adı (isteğe bağlı)</small>
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="use_tls" name="use_tls" {{if .Settings}}{{if .Settings.UseTLS}}checked{{end}}{{else}}checked{{end}}>
+                        TLS Kullan
+                    </label>
+                    <small>Güvenli bağlantı için önerilir</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Ayarları Kaydet</button>
+                    <button type="button" class="btn-secondary" onclick="testSMTPSettings(event)">Bağlantıyı Test Et</button>
+                    <a href="/" class="btn-secondary">İptal</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function testSMTPSettings(event) {
+            event.preventDefault();
+            
+            // Get form element
+            const form = document.querySelector('form');
+            
+            // Show loading state
+            const testBtn = event.target;
+            const originalText = testBtn.textContent;
+            testBtn.textContent = 'Test ediliyor...';
+            testBtn.disabled = true;
+            
+            // Submit form to test endpoint
+            const originalAction = form.action;
+            form.action = '/settings/test';
+            form.submit();
+            
+            // Note: Page will reload with result, so no need to restore button state
+        }
+    </script>
+</body>
+</html>

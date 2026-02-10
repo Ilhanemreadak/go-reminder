@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hatırlatıcılar - Email Reminder System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Hatırlatıcılar</h1>
+            <div class="header-actions">
+                <a href="/reminders/new" class="btn-primary">Hatırlatıcı Ekle</a>
+                <a href="/settings" class="btn-secondary">SMTP Ayarları</a>
+                <form method="POST" action="/logout" style="display: inline;">
+                    <button type="submit" class="btn-secondary">Çıkış Yap</button>
+                </form>
+            </div>
+        </header>
+
+        {{if .Success}}
+        <div class="success-message">
+            {{if eq .Success "created"}}
+                Hatırlatıcı başarıyla oluşturuldu!
+            {{else if eq .Success "updated"}}
+                Hatırlatıcı başarıyla güncellendi!
+            {{else if eq .Success "deleted"}}
+                Hatırlatıcı başarıyla silindi!
+            {{else if eq .Success "activated"}}
+                Hatırlatıcı başlatıldı!
+            {{else if eq .Success "deactivated"}}
+                Hatırlatıcı durduruldu!
+            {{end}}
+        </div>
+        {{end}}
+
+        <div class="reminders-list">
+            {{if .Reminders}}
+                {{range .Reminders}}
+                <div class="reminder-card {{if not .IsActive}}reminder-inactive{{end}}">
+                    <div class="reminder-header">
+                        <h3>
+                            {{.Title}}
+                            {{if .IsActive}}
+                                <span class="status-badge status-active">Aktif</span>
+                            {{else}}
+                                <span class="status-badge status-inactive">Pasif</span>
+                            {{end}}
+                        </h3>
+                        <div class="reminder-actions">
+                            <form method="POST" action="/reminders/{{.ID}}/toggle" style="display: inline;">
+                                {{if .IsActive}}
+                                    <button type="submit" class="btn-small btn-warning">Durdur</button>
+                                {{else}}
+                                    <button type="submit" class="btn-small btn-success">Başlat</button>
+                                {{end}}
+                            </form>
+                            <a href="/reminders/{{.ID}}/edit" class="btn-small">Düzenle</a>
+                            <form method="POST" action="/reminders/{{.ID}}/delete" style="display: inline;">
+                                <button type="submit" class="btn-small btn-danger" onclick="return confirm('Bu hatırlatıcıyı silmek istediğinizden emin misiniz?')">Sil</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="reminder-details">
+                        <p><strong>Zamanlama:</strong> 
+                            {{if eq .ScheduleType "daily"}}
+                                Her gün {{.TimeOfDay}}
+                            {{else if eq .ScheduleType "weekly"}}
+                                Her hafta 
+                                {{if eq .DayOfWeek 0}}Pazar{{end}}
+                                {{if eq .DayOfWeek 1}}Pazartesi{{end}}
+                                {{if eq .DayOfWeek 2}}Salı{{end}}
+                                {{if eq .DayOfWeek 3}}Çarşamba{{end}}
+                                {{if eq .DayOfWeek 4}}Perşembe{{end}}
+                                {{if eq .DayOfWeek 5}}Cuma{{end}}
+                                {{if eq .DayOfWeek 6}}Cumartesi{{end}}
+                                {{.TimeOfDay}}
+                            {{else if eq .ScheduleType "monthly"}}
+                                Her ayın {{.DayOfMonth}}. günü {{.TimeOfDay}}
+                            {{else if eq .ScheduleType "custom"}}
+                                Her {{.IntervalDays}} günde bir {{.TimeOfDay}}
+                            {{end}}
+                        </p>
+                        <p><strong>Sonraki Gönderim:</strong> {{.NextSendAt.Format "02.01.2006 15:04"}}</p>
+                        <p><strong>Alıcılar:</strong> {{len .Recipients}} kişi</p>
+                    </div>
+                </div>
+                {{end}}
+            {{else}}
+                <div class="empty-state">
+                    <p>Henüz hatırlatıcı oluşturmadınız.</p>
+                    <a href="/reminders/new" class="btn-primary">İlk Hatırlatıcıyı Oluştur</a>
+                </div>
+            {{end}}
+        </div>
+    </div>
+</body>
+</html>

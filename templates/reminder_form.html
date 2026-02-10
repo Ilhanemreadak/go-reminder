@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .IsEdit}}Hatırlatıcı Düzenle{{else}}Yeni Hatırlatıcı{{end}} - Email Reminder System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{if .IsEdit}}Hatırlatıcı Düzenle{{else}}Yeni Hatırlatıcı{{end}}</h1>
+            <div class="header-actions">
+                <a href="/" class="btn-secondary">Geri Dön</a>
+            </div>
+        </header>
+
+        {{if .Error}}
+        <div class="error-message">
+            {{.Error}}
+        </div>
+        {{end}}
+
+        <div class="form-container">
+            <form method="POST" action="{{if .IsEdit}}/reminders/{{.Reminder.ID}}{{else}}/reminders{{end}}">
+                <div class="form-group">
+                    <label for="title">Başlık *</label>
+                    <input type="text" id="title" name="title" value="{{.Reminder.Title}}" required>
+                    <small>Hatırlatıcı için açıklayıcı bir başlık girin</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="recipients">Alıcılar (E-posta Adresleri) *</label>
+                    <textarea id="recipients" name="recipients" rows="3" required>{{range $i, $email := .Reminder.Recipients}}{{if $i}}, {{end}}{{$email}}{{end}}</textarea>
+                    <small>E-posta adreslerini virgülle ayırarak girin (örn: user1@example.com, user2@example.com)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="email_content">E-posta İçeriği *</label>
+                    <textarea id="email_content" name="email_content" rows="6" required>{{.Reminder.EmailContent}}</textarea>
+                    <small>Gönderilecek e-posta mesajının içeriği</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="schedule_type">Zamanlama Türü *</label>
+                    <select id="schedule_type" name="schedule_type" required onchange="updateScheduleFields()">
+                        <option value="">Seçiniz...</option>
+                        <option value="daily" {{if eq .Reminder.ScheduleType "daily"}}selected{{end}}>Günlük</option>
+                        <option value="weekly" {{if eq .Reminder.ScheduleType "weekly"}}selected{{end}}>Haftalık</option>
+                        <option value="monthly" {{if eq .Reminder.ScheduleType "monthly"}}selected{{end}}>Aylık</option>
+                        <option value="custom" {{if eq .Reminder.ScheduleType "custom"}}selected{{end}}>Özel Aralık</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="day_of_week_group" style="display: none;">
+                    <label for="day_of_week">Haftanın Günü *</label>
+                    <select id="day_of_week" name="day_of_week">
+                        <option value="0" {{if eq .Reminder.DayOfWeek 0}}selected{{end}}>Pazar</option>
+                        <option value="1" {{if eq .Reminder.DayOfWeek 1}}selected{{end}}>Pazartesi</option>
+                        <option value="2" {{if eq .Reminder.DayOfWeek 2}}selected{{end}}>Salı</option>
+                        <option value="3" {{if eq .Reminder.DayOfWeek 3}}selected{{end}}>Çarşamba</option>
+                        <option value="4" {{if eq .Reminder.DayOfWeek 4}}selected{{end}}>Perşembe</option>
+                        <option value="5" {{if eq .Reminder.DayOfWeek 5}}selected{{end}}>Cuma</option>
+                        <option value="6" {{if eq .Reminder.DayOfWeek 6}}selected{{end}}>Cumartesi</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="day_of_month_group" style="display: none;">
+                    <label for="day_of_month">Ayın Günü *</label>
+                    <input type="number" id="day_of_month" name="day_of_month" min="1" max="31" value="{{if .Reminder.DayOfMonth}}{{.Reminder.DayOfMonth}}{{else}}1{{end}}">
+                    <small>1-31 arası bir değer girin</small>
+                </div>
+
+                <div class="form-group" id="interval_days_group" style="display: none;">
+                    <label for="interval_days">Gün Aralığı *</label>
+                    <input type="number" id="interval_days" name="interval_days" min="1" value="{{if .Reminder.IntervalDays}}{{.Reminder.IntervalDays}}{{else}}1{{end}}">
+                    <small>Kaç günde bir gönderilsin?</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="time_of_day">Gönderim Saati (HH:MM) *</label>
+                    <input type="text" id="time_of_day" name="time_of_day" value="{{.Reminder.TimeOfDay}}" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" placeholder="14:30" required>
+                    <small>24 saat formatında saat girin (örn: 14:30)</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">{{if .IsEdit}}Güncelle{{else}}Oluştur{{end}}</button>
+                    <a href="/" class="btn-secondary">İptal</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function updateScheduleFields() {
+            const scheduleType = document.getElementById('schedule_type').value;
+            const dayOfWeekGroup = document.getElementById('day_of_week_group');
+            const dayOfMonthGroup = document.getElementById('day_of_month_group');
+            const intervalDaysGroup = document.getElementById('interval_days_group');
+            
+            const dayOfWeekInput = document.getElementById('day_of_week');
+            const dayOfMonthInput = document.getElementById('day_of_month');
+            const intervalDaysInput = document.getElementById('interval_days');
+
+            // Hide all schedule-specific fields and disable validation
+            dayOfWeekGroup.style.display = 'none';
+            dayOfMonthGroup.style.display = 'none';
+            intervalDaysGroup.style.display = 'none';
+            
+            // Remove required attribute and disable inputs when hidden
+            dayOfWeekInput.removeAttribute('required');
+            dayOfMonthInput.removeAttribute('required');
+            intervalDaysInput.removeAttribute('required');
+            
+            dayOfWeekInput.disabled = true;
+            dayOfMonthInput.disabled = true;
+            intervalDaysInput.disabled = true;
+
+            // Show relevant fields based on schedule type
+            if (scheduleType === 'weekly') {
+                dayOfWeekGroup.style.display = 'block';
+                dayOfWeekInput.setAttribute('required', 'required');
+                dayOfWeekInput.disabled = false;
+            } else if (scheduleType === 'monthly') {
+                dayOfMonthGroup.style.display = 'block';
+                dayOfMonthInput.setAttribute('required', 'required');
+                dayOfMonthInput.disabled = false;
+            } else if (scheduleType === 'custom') {
+                intervalDaysGroup.style.display = 'block';
+                intervalDaysInput.setAttribute('required', 'required');
+                intervalDaysInput.disabled = false;
+            }
+        }
+
+        // Initialize form on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateScheduleFields();
+        });
+    </script>
+</body>
+</html>
