@@ -1,0 +1,131 @@
+{{define "group_form.html"}}
+<!DOCTYPE html>
+<html lang="tr" class="h-100">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .IsEdit}}Grup Düzenle{{else}}Yeni Grup{{end}} - Email Reminder System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body class="d-flex flex-column h-100 bg-light">
+    {{if .IsAuthenticated}}
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="bi bi-envelope-check me-2"></i>Email Reminder System
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">
+                            <i class="bi bi-bell me-1"></i>Hatırlatıcılar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/groups">
+                            <i class="bi bi-people me-1"></i>Gruplar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/email-history">
+                            <i class="bi bi-clock-history me-1"></i>E-posta Geçmişi
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings">
+                            <i class="bi bi-gear me-1"></i>SMTP Ayarları
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <form method="POST" action="/logout" class="d-inline">
+                            <button type="submit" class="btn btn-outline-light btn-sm ms-2">
+                                <i class="bi bi-box-arrow-right me-1"></i>Çıkış
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {{end}}
+
+    <main class="flex-shrink-0 {{if .IsAuthenticated}}py-4{{else}}py-5{{end}}">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="mb-0">
+                            <i class="bi bi-{{if .IsEdit}}pencil{{else}}plus-circle{{end}}-fill text-primary me-2"></i>
+                            {{if .IsEdit}}Grup Düzenle{{else}}Yeni Grup{{end}}
+                        </h2>
+                        <a href="/groups" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Geri
+                        </a>
+                    </div>
+
+                    {{if .Error}}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{.Error}}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {{end}}
+
+                    <div class="card shadow-sm">
+                        <div class="card-body p-4">
+                            <form method="POST" action="{{if .IsEdit}}/groups/{{.Group.ID}}{{else}}/groups{{end}}">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label fw-semibold">
+                                        Grup Adı <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" id="name" name="name"
+                                        value="{{.Group.Name}}" placeholder="Örn: Pazarlama Ekibi" required>
+                                    <div class="form-text">Grup için tanımlayıcı bir ad girin</div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="emails" class="form-label fw-semibold">
+                                        E-posta Adresleri <span class="text-danger">*</span>
+                                    </label>
+                                    <textarea class="form-control" id="emails" name="emails" rows="5"
+                                        placeholder="ali@example.com, veli@example.com, ayse@example.com"
+                                        required>{{range $i, $email := .Group.Emails}}{{if $i}}, {{end}}{{$email}}{{end}}</textarea>
+                                    <div class="form-text">E-posta adreslerini virgülle ayırın</div>
+                                </div>
+
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <a href="/groups" class="btn btn-outline-secondary">
+                                        <i class="bi bi-x-circle me-1"></i>İptal
+                                    </a>
+                                    <button type="submit" class="btn btn-primary px-4">
+                                        <i class="bi bi-save me-2"></i>{{if .IsEdit}}Güncelle{{else}}Oluştur{{end}}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    {{if .IsAuthenticated}}
+    <footer class="footer mt-auto py-3 bg-white border-top">
+        <div class="container text-center text-muted">
+            <small>&copy; 2026 Email Reminder System. Tüm hakları saklıdır.</small>
+        </div>
+    </footer>
+    {{end}}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>
+{{end}}

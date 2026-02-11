@@ -1,11 +1,12 @@
 {{define "settings.html"}}
 <!DOCTYPE html>
 <html lang="tr" class="h-100">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SMTP Ayarları - Email Reminder System</title>
-    
+
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -13,6 +14,7 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
+
 <body class="d-flex flex-column h-100 bg-light">
     {{if .IsAuthenticated}}
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
@@ -26,17 +28,22 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link {{if eq .ActivePage "reminders"}}active{{end}}" href="/">
+                        <a class="nav-link {{if eq .ActivePage " reminders"}}active{{end}}" href="/">
                             <i class="bi bi-bell me-1"></i>Hatırlatıcılar
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{if eq .ActivePage "email-history"}}active{{end}}" href="/email-history">
+                        <a class="nav-link {{if eq .ActivePage " groups"}}active{{end}}" href="/groups">
+                            <i class="bi bi-people me-1"></i>Gruplar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{if eq .ActivePage " email-history"}}active{{end}}" href="/email-history">
                             <i class="bi bi-clock-history me-1"></i>E-posta Geçmişi
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{if eq .ActivePage "settings"}}active{{end}}" href="/settings">
+                        <a class="nav-link {{if eq .ActivePage " settings"}}active{{end}}" href="/settings">
                             <i class="bi bi-gear me-1"></i>SMTP Ayarları
                         </a>
                     </li>
@@ -54,167 +61,168 @@
     {{end}}
 
     <main class="flex-shrink-0 {{if .IsAuthenticated}}py-4{{else}}py-5{{end}}">
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <!-- Page Header -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="mb-0">
-                    <i class="bi bi-gear-fill text-primary me-2"></i>SMTP Ayarları
-                </h2>
-                <a href="/" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left me-1"></i>Geri Dön
-                </a>
-            </div>
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <!-- Page Header -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="mb-0">
+                            <i class="bi bi-gear-fill text-primary me-2"></i>SMTP Ayarları
+                        </h2>
+                        <a href="/" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Geri Dön
+                        </a>
+                    </div>
 
-            <!-- Success Alert -->
-            {{if .Success}}
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle-fill me-2"></i>
-                {{if eq .Success "updated"}}
-                    SMTP ayarları başarıyla güncellendi!
-                {{else if eq .Success "test_ok"}}
-                    SMTP bağlantı testi başarılı! Ayarlar doğru çalışıyor.
-                {{end}}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-            {{end}}
+                    <!-- Success Alert -->
+                    {{if .Success}}
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        {{if eq .Success "updated"}}
+                        SMTP ayarları başarıyla güncellendi!
+                        {{else if eq .Success "test_ok"}}
+                        SMTP bağlantı testi başarılı! Ayarlar doğru çalışıyor.
+                        {{end}}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {{end}}
 
-            <!-- Error Alert -->
-            {{if .Error}}
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                {{.Error}}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-            {{end}}
+                    <!-- Error Alert -->
+                    {{if .Error}}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        {{.Error}}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {{end}}
 
-            <!-- Settings Form Card -->
-            <div class="card shadow-sm">
-                <div class="card-body p-4">
-                    <form method="POST" action="/settings" id="settingsForm">
-                        <!-- SMTP Server -->
-                        <div class="mb-3">
-                            <label for="host" class="form-label fw-semibold">
-                                SMTP Sunucusu <span class="text-danger">*</span>
-                            </label>
-                            <input type="text" class="form-control" id="host" name="host" 
-                                   value="{{if .Settings}}{{.Settings.Host}}{{end}}" 
-                                   required placeholder="smtp.gmail.com">
-                            <div class="form-text">E-posta sağlayıcınızın SMTP sunucu adresi</div>
+                    <!-- Settings Form Card -->
+                    <div class="card shadow-sm">
+                        <div class="card-body p-4">
+                            <form method="POST" action="/settings" id="settingsForm">
+                                <!-- SMTP Server -->
+                                <div class="mb-3">
+                                    <label for="host" class="form-label fw-semibold">
+                                        SMTP Sunucusu <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" id="host" name="host"
+                                        value="{{if .Settings}}{{.Settings.Host}}{{end}}" required
+                                        placeholder="smtp.gmail.com">
+                                    <div class="form-text">E-posta sağlayıcınızın SMTP sunucu adresi</div>
+                                </div>
+
+                                <!-- Port -->
+                                <div class="mb-3">
+                                    <label for="port" class="form-label fw-semibold">
+                                        Port <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="number" class="form-control" id="port" name="port"
+                                        value="{{if .Settings}}{{.Settings.Port}}{{else}}587{{end}}" required min="1"
+                                        max="65535">
+                                    <div class="form-text">Genellikle 587 (STARTTLS) veya 465 (SSL/TLS)</div>
+                                </div>
+
+                                <!-- Username -->
+                                <div class="mb-3">
+                                    <label for="username" class="form-label fw-semibold">
+                                        Kullanıcı Adı <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" id="username" name="username"
+                                        value="{{if .Settings}}{{.Settings.Username}}{{end}}" required>
+                                    <div class="form-text">SMTP kimlik doğrulama kullanıcı adı</div>
+                                </div>
+
+                                <!-- Password -->
+                                <div class="mb-3">
+                                    <label for="password" class="form-label fw-semibold">
+                                        Şifre {{if not .Settings}}<span class="text-danger">*</span>{{end}}
+                                    </label>
+                                    <input type="password" class="form-control" id="password" name="password"
+                                        value="{{if .Settings}}{{.Settings.Password}}{{end}}" {{if not
+                                        .Settings}}required{{end}}>
+                                    <div class="form-text">
+                                        {{if .Settings}}
+                                        Değiştirmek için yeni şifre girin, boş bırakırsanız mevcut şifre korunur
+                                        {{else}}
+                                        SMTP kimlik doğrulama şifresi
+                                        {{end}}
+                                    </div>
+                                </div>
+
+                                <!-- From Email -->
+                                <div class="mb-3">
+                                    <label for="from_email" class="form-label fw-semibold">
+                                        Gönderen E-posta <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="email" class="form-control" id="from_email" name="from_email"
+                                        value="{{if .Settings}}{{.Settings.FromEmail}}{{end}}" required>
+                                    <div class="form-text">E-postaların gönderileceği adres</div>
+                                </div>
+
+                                <!-- From Name -->
+                                <div class="mb-3">
+                                    <label for="from_name" class="form-label fw-semibold">
+                                        Gönderen Adı
+                                    </label>
+                                    <input type="text" class="form-control" id="from_name" name="from_name"
+                                        value="{{if .Settings}}{{.Settings.FromName}}{{end}}">
+                                    <div class="form-text">E-postalarda görünecek gönderen adı (isteğe bağlı)</div>
+                                </div>
+
+                                <!-- TLS Checkbox -->
+                                <div class="mb-4">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="use_tls"
+                                            name="use_tls" {{if .Settings}}{{if
+                                            .Settings.UseTLS}}checked{{end}}{{else}}checked{{end}}>
+                                        <label class="form-check-label fw-semibold" for="use_tls">
+                                            TLS Kullan (Önerilen)
+                                        </label>
+                                    </div>
+                                    <div class="form-text ms-4">Güvenli bağlantı için şiddetle önerilir</div>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <button type="submit" class="btn btn-primary px-4">
+                                        <i class="bi bi-save me-2"></i>Ayarları Kaydet
+                                    </button>
+                                    <button type="button" class="btn btn-success px-4"
+                                        onclick="testSMTPSettings(event)">
+                                        <i class="bi bi-check-circle me-2"></i>Bağlantıyı Test Et
+                                    </button>
+                                </div>
+                            </form>
                         </div>
+                    </div>
 
-                        <!-- Port -->
-                        <div class="mb-3">
-                            <label for="port" class="form-label fw-semibold">
-                                Port <span class="text-danger">*</span>
-                            </label>
-                            <input type="number" class="form-control" id="port" name="port" 
-                                   value="{{if .Settings}}{{.Settings.Port}}{{else}}587{{end}}" 
-                                   required min="1" max="65535">
-                            <div class="form-text">Genellikle 587 (STARTTLS) veya 465 (SSL/TLS)</div>
-                        </div>
-
-                        <!-- Username -->
-                        <div class="mb-3">
-                            <label for="username" class="form-label fw-semibold">
-                                Kullanıcı Adı <span class="text-danger">*</span>
-                            </label>
-                            <input type="text" class="form-control" id="username" name="username" 
-                                   value="{{if .Settings}}{{.Settings.Username}}{{end}}" required>
-                            <div class="form-text">SMTP kimlik doğrulama kullanıcı adı</div>
-                        </div>
-
-                        <!-- Password -->
-                        <div class="mb-3">
-                            <label for="password" class="form-label fw-semibold">
-                                Şifre {{if not .Settings}}<span class="text-danger">*</span>{{end}}
-                            </label>
-                            <input type="password" class="form-control" id="password" name="password" 
-                                   value="{{if .Settings}}{{.Settings.Password}}{{end}}" 
-                                   {{if not .Settings}}required{{end}}>
-                            <div class="form-text">
-                                {{if .Settings}}
-                                    Değiştirmek için yeni şifre girin, boş bırakırsanız mevcut şifre korunur
-                                {{else}}
-                                    SMTP kimlik doğrulama şifresi
-                                {{end}}
+                    <!-- Help Card -->
+                    <div class="card mt-4 border-info">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <i class="bi bi-info-circle text-info me-2"></i>Yaygın SMTP Ayarları
+                            </h6>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-6">
+                                    <strong>Gmail:</strong><br>
+                                    <small class="text-muted">
+                                        Sunucu: smtp.gmail.com<br>
+                                        Port: 587 (TLS açık)
+                                    </small>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Outlook/Hotmail:</strong><br>
+                                    <small class="text-muted">
+                                        Sunucu: smtp-mail.outlook.com<br>
+                                        Port: 587 (TLS açık)
+                                    </small>
+                                </div>
                             </div>
-                        </div>
-
-                        <!-- From Email -->
-                        <div class="mb-3">
-                            <label for="from_email" class="form-label fw-semibold">
-                                Gönderen E-posta <span class="text-danger">*</span>
-                            </label>
-                            <input type="email" class="form-control" id="from_email" name="from_email" 
-                                   value="{{if .Settings}}{{.Settings.FromEmail}}{{end}}" required>
-                            <div class="form-text">E-postaların gönderileceği adres</div>
-                        </div>
-
-                        <!-- From Name -->
-                        <div class="mb-3">
-                            <label for="from_name" class="form-label fw-semibold">
-                                Gönderen Adı
-                            </label>
-                            <input type="text" class="form-control" id="from_name" name="from_name" 
-                                   value="{{if .Settings}}{{.Settings.FromName}}{{end}}">
-                            <div class="form-text">E-postalarda görünecek gönderen adı (isteğe bağlı)</div>
-                        </div>
-
-                        <!-- TLS Checkbox -->
-                        <div class="mb-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" 
-                                       id="use_tls" name="use_tls" 
-                                       {{if .Settings}}{{if .Settings.UseTLS}}checked{{end}}{{else}}checked{{end}}>
-                                <label class="form-check-label fw-semibold" for="use_tls">
-                                    TLS Kullan (Önerilen)
-                                </label>
-                            </div>
-                            <div class="form-text ms-4">Güvenli bağlantı için şiddetle önerilir</div>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="submit" class="btn btn-primary px-4">
-                                <i class="bi bi-save me-2"></i>Ayarları Kaydet
-                            </button>
-                            <button type="button" class="btn btn-success px-4" onclick="testSMTPSettings(event)">
-                                <i class="bi bi-check-circle me-2"></i>Bağlantıyı Test Et
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Help Card -->
-            <div class="card mt-4 border-info">
-                <div class="card-body">
-                    <h6 class="card-title">
-                        <i class="bi bi-info-circle text-info me-2"></i>Yaygın SMTP Ayarları
-                    </h6>
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-6">
-                            <strong>Gmail:</strong><br>
-                            <small class="text-muted">
-                                Sunucu: smtp.gmail.com<br>
-                                Port: 587 (TLS açık)
-                            </small>
-                        </div>
-                        <div class="col-md-6">
-                            <strong>Outlook/Hotmail:</strong><br>
-                            <small class="text-muted">
-                                Sunucu: smtp-mail.outlook.com<br>
-                                Port: 587 (TLS açık)
-                            </small>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
     </main>
 
     {{if .IsAuthenticated}}
@@ -229,26 +237,27 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/js/app.js"></script>
     <script>
-    function testSMTPSettings(event) {
-        event.preventDefault();
-        
-        // Get form element
-        const form = document.getElementById('settingsForm');
-        const testBtn = event.target;
-        
-        // Show loading state
-        const originalHTML = testBtn.innerHTML;
-        testBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Test ediliyor...';
-        testBtn.disabled = true;
-        
-        // Submit form to test endpoint
-        const originalAction = form.action;
-        form.action = '/settings/test';
-        form.submit();
-        
-        // Note: Page will reload with result, so no need to restore button state
-    }
-</script>
+        function testSMTPSettings(event) {
+            event.preventDefault();
+
+            // Get form element
+            const form = document.getElementById('settingsForm');
+            const testBtn = event.target;
+
+            // Show loading state
+            const originalHTML = testBtn.innerHTML;
+            testBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Test ediliyor...';
+            testBtn.disabled = true;
+
+            // Submit form to test endpoint
+            const originalAction = form.action;
+            form.action = '/settings/test';
+            form.submit();
+
+            // Note: Page will reload with result, so no need to restore button state
+        }
+    </script>
 </body>
+
 </html>
 {{end}}

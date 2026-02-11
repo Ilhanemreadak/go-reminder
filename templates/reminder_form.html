@@ -55,6 +55,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{if eq .ActivePage " groups"}}active{{end}}" href="/groups">
+                            <i class="bi bi-people me-1"></i>Gruplar
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{if eq .ActivePage " email-history"}}active{{end}}" href="/email-history">
                             <i class="bi bi-clock-history me-1"></i>E-posta Geçmişi
                         </a>
@@ -113,12 +118,25 @@
                                 </div>
 
                                 <div class="mb-3">
-                                    <label for="recipients" class="form-label fw-semibold">
-                                        Alıcılar <span class="text-danger">*</span>
-                                    </label>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label for="recipients" class="form-label fw-semibold mb-0">
+                                            Alıcılar <span class="text-danger">*</span>
+                                        </label>
+                                        <div class="d-flex align-items-center">
+                                            <select class="form-select form-select-sm me-2" id="group_selector"
+                                                style="width: auto;">
+                                                <option value="">Grup Ekle...</option>
+                                            </select>
+                                            <a href="/groups/new" target="_blank" class="btn btn-outline-primary btn-sm"
+                                                title="Yeni Grup Oluştur">
+                                                <i class="bi bi-plus"></i>
+                                            </a>
+                                        </div>
+                                    </div>
                                     <textarea class="form-control" id="recipients" name="recipients" rows="3"
                                         required>{{range $i, $email := .Reminder.Recipients}}{{if $i}}, {{end}}{{$email}}{{end}}</textarea>
-                                    <div class="form-text">E-posta adreslerini virgülle ayırın</div>
+                                    <div class="form-text">E-posta adreslerini virgülle ayırın. Yukarıdaki menüden grup
+                                        seçerek toplu ekleme yapabilirsiniz.</div>
                                 </div>
 
                                 <div class="mb-3">
@@ -346,6 +364,52 @@
                     }
                 });
             }
+
+            // Load groups
+            fetch('/api/groups')
+                .then(response => response.json())
+                .then(groups => {
+                    const selector = document.getElementById('group_selector');
+                    if (selector && groups.length > 0) {
+                        groups.forEach(group => {
+                            const option = document.createElement('option');
+                            option.value = JSON.stringify(group.emails);
+                            option.textContent = group.name;
+                            selector.appendChild(option);
+                        });
+
+                        selector.addEventListener('change', function () {
+                            if (this.value) {
+                                const newEmails = JSON.parse(this.value);
+                                const recipientsField = document.getElementById('recipients');
+                                let currentRecipients = recipientsField.value.split(',').map(e => e.trim()).filter(e => e);
+
+                                // Add new emails if they don't exist
+                                let addedCount = 0;
+                                newEmails.forEach(email => {
+                                    if (!currentRecipients.includes(email)) {
+                                        currentRecipients.push(email);
+                                        addedCount++;
+                                    }
+                                });
+
+                                recipientsField.value = currentRecipients.join(', ');
+
+                                // Reset selector
+                                this.value = "";
+
+                                if (addedCount > 0) {
+                                    // Flash effect to show success
+                                    recipientsField.style.backgroundColor = "#e8f5e9";
+                                    setTimeout(() => {
+                                        recipientsField.style.backgroundColor = "";
+                                    }, 500);
+                                }
+                            }
+                        });
+                    }
+                })
+                .catch(err => console.error('Failed to load groups:', err));
         });
     </script>
 </body>

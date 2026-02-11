@@ -83,6 +83,19 @@ CREATE INDEX IF NOT EXISTS idx_email_logs_reminder_id ON email_logs(reminder_id)
 CREATE INDEX IF NOT EXISTS idx_email_logs_status ON email_logs(status);
 CREATE INDEX IF NOT EXISTS idx_email_logs_sent_at ON email_logs(sent_at);
 CREATE INDEX IF NOT EXISTS idx_email_logs_user_sent ON email_logs(user_id, sent_at DESC);
+
+-- Recipient Groups table
+CREATE TABLE IF NOT EXISTS recipient_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    emails TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_recipient_groups_user_id ON recipient_groups(user_id);
 `
 
 // GetSchema returns the database schema for testing purposes
@@ -95,4 +108,16 @@ func runMigrations(db *sql.DB) {
 	// Add schedule_date column to reminders table (for one-time reminders)
 	// SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we ignore the error
 	db.Exec(`ALTER TABLE reminders ADD COLUMN schedule_date TEXT`)
+
+	// Create recipient_groups table if it doesn't exist (for older databases)
+	db.Exec(`CREATE TABLE IF NOT EXISTS recipient_groups (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		name TEXT NOT NULL,
+		emails TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+	)`)
+	db.Exec(`CREATE INDEX IF NOT EXISTS idx_recipient_groups_user_id ON recipient_groups(user_id)`)
 }

@@ -33,6 +33,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{if eq .ActivePage " groups"}}active{{end}}" href="/groups">
+                            <i class="bi bi-people me-1"></i>Gruplar
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{if eq .ActivePage " email-history"}}active{{end}}" href="/email-history">
                             <i class="bi bi-clock-history me-1"></i>E-posta Geçmişi
                         </a>
@@ -112,7 +117,8 @@
                                 <select class="form-select" id="reminder_id" name="reminder_id">
                                     <option value="">Tümü</option>
                                     {{range .Reminders}}
-                                    <option value="{{.ID}}" {{if eq $.ReminderID .ID}}selected{{end}}>{{.Title}}
+                                    <option value="{{.ID}}" {{if and $.ReminderID (eq (printf "%d" $.ReminderID)
+                                        (printf "%d" .ID))}}selected{{end}}>{{.Title}}
                                     </option>
                                     {{end}}
                                 </select>
@@ -132,7 +138,7 @@
 
             <!-- Results Summary -->
             <div class="mb-3">
-                {{if .Logs}}
+                {{if gt .TotalCount 0}}
                 <p class="text-muted">
                     <i class="bi bi-info-circle me-1"></i>
                     {{if .FiltersApplied}}
@@ -154,7 +160,7 @@
             </div>
 
             <!-- Email History Table -->
-            {{if .Logs}}
+            {{if gt .TotalCount 0}}
             <div class="card shadow-sm">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">

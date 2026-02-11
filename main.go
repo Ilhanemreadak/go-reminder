@@ -26,11 +26,11 @@ func main() {
 			os.Exit(1)
 		}
 	}()
-	
+
 	// Initialize logger
 	logger := services.GetLogger()
 	defer logger.Close()
-	
+
 	// Load configuration from environment variables
 	cfg := config.Load()
 
@@ -85,7 +85,7 @@ func main() {
 	settingsService := services.NewSettingsService(repo, encryptionService)
 	emailHistoryService := services.NewEmailHistoryService(repo, logger)
 	emailService := services.NewEmailService(emailHistoryService)
-	
+
 	// Initialize scheduler service
 	schedulerService := services.NewSchedulerService(repo, emailService, reminderService, encryptionService)
 
@@ -107,6 +107,7 @@ func main() {
 	reminderHandler := handlers.NewReminderHandler(reminderService, templates)
 	settingsHandler := handlers.NewSettingsHandler(settingsService, emailService, templates)
 	emailHistoryHandler := handlers.NewEmailHistoryHandler(emailHistoryService, templates)
+	groupHandler := handlers.NewRecipientGroupHandler(repo, templates)
 	authMiddleware := handlers.NewAuthMiddleware(authService)
 
 	// Set up HTTP routes with authentication middleware
@@ -172,7 +173,7 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})))
-	
+
 	// Protected routes - Test SMTP settings
 	http.HandleFunc("/settings/test", handlers.RecoverMiddleware(authMiddleware.RequireAuth(settingsHandler.TestSMTPSettings)))
 
@@ -184,7 +185,7 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})))
-	
+
 	// Protected routes - Email History Detail
 	http.HandleFunc("/email-history/", handlers.RecoverMiddleware(authMiddleware.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
@@ -193,6 +194,43 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})))
+
+	// Protected routes - Recipient Groups
+	http.HandleFunc("/groups", handlers.RecoverMiddleware(authMiddleware.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			groupHandler.ListGroups(w, r)
+		} else if r.Method == http.MethodPost {
+			groupHandler.CreateGroup(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+
+	http.HandleFunc("/groups/new", handlers.RecoverMiddleware(authMiddleware.RequireAuth(groupHandler.NewGroupForm)))
+	http.HandleFunc("/groups/export", handlers.RecoverMiddleware(authMiddleware.RequireAuth(groupHandler.ExportCSV)))
+	http.HandleFunc("/groups/import", handlers.RecoverMiddleware(authMiddleware.RequireAuth(groupHandler.ImportCSV)))
+
+	http.HandleFunc("/groups/", handlers.RecoverMiddleware(authMiddleware.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if len(path) > len("/groups/") {
+			if len(path) > 5 && path[len(path)-5:] == "/edit" {
+				groupHandler.EditGroupForm(w, r)
+			} else if len(path) > 7 && path[len(path)-7:] == "/delete" {
+				groupHandler.DeleteGroup(w, r)
+			} else {
+				if r.Method == http.MethodPost {
+					groupHandler.UpdateGroup(w, r)
+				} else {
+					http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+				}
+			}
+		} else {
+			http.Error(w, "Not found", http.StatusNotFound)
+		}
+	})))
+
+	// Protected routes - API for AJAX
+	http.HandleFunc("/api/groups", handlers.RecoverMiddleware(authMiddleware.RequireAuth(groupHandler.GetGroupsJSON)))
 
 	// Serve static files
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -220,7 +258,7 @@ func main() {
 			"database":         cfg.DatabasePath,
 			"session_duration": cfg.SessionDuration.String(),
 		})
-		
+
 		serverErrors <- http.ListenAndServe(":"+cfg.ServerPort, nil)
 	}()
 
@@ -236,14 +274,14 @@ func main() {
 		logger.Info("Received shutdown signal", map[string]interface{}{
 			"signal": sig.String(),
 		})
-		
+
 		// Stop scheduler gracefully
 		if err := schedulerService.Stop(); err != nil {
 			logger.Error("Error stopping scheduler", map[string]interface{}{
 				"error": err.Error(),
 			})
 		}
-		
+
 		logger.Info("Application shutdown complete", nil)
 	}
 }

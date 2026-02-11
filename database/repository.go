@@ -39,6 +39,13 @@ type Repository interface {
 	UpdateEmailLogStatus(id int64, status string, errorMessage *string, sentAt time.Time) error
 	GetEmailLog(id int64, userID int64) (*models.EmailLog, error)
 	GetEmailLogs(filter *models.EmailHistoryFilter) (*models.EmailHistoryResult, error)
+
+	// Recipient Group operations
+	CreateRecipientGroup(group *models.RecipientGroup) error
+	GetRecipientGroup(id int64) (*models.RecipientGroup, error)
+	GetRecipientGroupsByUserID(userID int64) ([]*models.RecipientGroup, error)
+	UpdateRecipientGroup(group *models.RecipientGroup) error
+	DeleteRecipientGroup(id int64) error
 }
 
 // SQLiteRepository implements Repository interface using SQLite
@@ -588,4 +595,111 @@ func (r *SQLiteRepository) GetEmailLogs(filter *models.EmailHistoryFilter) (*mod
 	}
 
 	return result, nil
+}
+
+// Recipient Group operations
+
+func (r *SQLiteRepository) CreateRecipientGroup(group *models.RecipientGroup) error {
+	emails, err := json.Marshal(group.Emails)
+	if err != nil {
+		return fmt.Errorf("failed to marshal emails: %w", err)
+	}
+
+	query := `INSERT INTO recipient_groups (user_id, name, emails) VALUES (?, ?, ?)`
+	result, err := r.db.Exec(query, group.UserID, group.Name, string(emails))
+	if err != nil {
+		return fmt.Errorf("failed to create recipient group: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("failed to get recipient group ID: %w", err)
+	}
+	group.ID = id
+	group.CreatedAt = time.Now()
+	group.UpdatedAt = time.Now()
+	return nil
+}
+
+func (r *SQLiteRepository) GetRecipientGroup(id int64) (*models.RecipientGroup, error) {
+	query := `SELECT id, user_id, name, emails, created_at, updated_at FROM recipient_groups WHERE id = ?`
+
+	group := &models.RecipientGroup{}
+	var emailsJSON string
+
+	err := r.db.QueryRow(query, id).Scan(&group.ID, &group.UserID, &group.Name,
+		&emailsJSON, &group.CreatedAt, &group.UpdatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("recipient group not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recipient group: %w", err)
+	}
+
+	if err := json.Unmarshal([]byte(emailsJSON), &group.Emails); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal emails: %w", err)
+	}
+
+	return group, nil
+}
+
+func (r *SQLiteRepository) GetRecipientGroupsByUserID(userID int64) ([]*models.RecipientGroup, error) {
+	query := `SELECT id, user_id, name, emails, created_at, updated_at 
+		FROM recipient_groups WHERE user_id = ? ORDER BY name ASC`
+
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recipient groups: %w", err)
+	}
+	defer rows.Close()
+
+	var groups []*models.RecipientGroup
+	for rows.Next() {
+		group := &models.RecipientGroup{}
+		var emailsJSON string
+
+		err := rows.Scan(&group.ID, &group.UserID, &group.Name,
+			&emailsJSON, &group.CreatedAt, &group.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan recipient group: %w", err)
+		}
+
+		if err := json.Unmarshal([]byte(emailsJSON), &group.Emails); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal emails: %w", err)
+		}
+
+		groups = append(groups, group)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating recipient groups: %w", err)
+	}
+
+	return groups, nil
+}
+
+func (r *SQLiteRepository) UpdateRecipientGroup(group *models.RecipientGroup) error {
+	emails, err := json.Marshal(group.Emails)
+	if err != nil {
+		return fmt.Errorf("failed to marshal emails: %w", err)
+	}
+
+	query := `UPDATE recipient_groups SET name = ?, emails = ?, updated_at = ? WHERE id = ?`
+	_, err = r.db.Exec(query, group.Name, string(emails), time.Now(), group.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update recipient group: %w", err)
+	}
+
+	group.UpdatedAt = time.Now()
+	return nil
+}
+
+func (r *SQLiteRepository) DeleteRecipientGroup(id int64) error {
+	query := `DELETE FROM recipient_groups WHERE id = ?`
+	_, err := r.db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete recipient group: %w", err)
+	}
+	return nil
 }

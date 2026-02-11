@@ -85,6 +85,15 @@ func (m *mockReminderRepo) GetEmailLog(id int64, userID int64) (*models.EmailLog
 func (m *mockReminderRepo) GetEmailLogs(filter *models.EmailHistoryFilter) (*models.EmailHistoryResult, error) {
 	return nil, nil
 }
+func (m *mockReminderRepo) CreateRecipientGroup(group *models.RecipientGroup) error { return nil }
+func (m *mockReminderRepo) GetRecipientGroup(id int64) (*models.RecipientGroup, error) {
+	return nil, nil
+}
+func (m *mockReminderRepo) GetRecipientGroupsByUserID(userID int64) ([]*models.RecipientGroup, error) {
+	return nil, nil
+}
+func (m *mockReminderRepo) UpdateRecipientGroup(group *models.RecipientGroup) error { return nil }
+func (m *mockReminderRepo) DeleteRecipientGroup(id int64) error                     { return nil }
 
 func TestValidateReminder_RequiredFields(t *testing.T) {
 	service := NewReminderService(newMockReminderRepo())
