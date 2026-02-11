@@ -146,11 +146,11 @@ func (r *SQLiteRepository) CreateReminder(reminder *models.Reminder) error {
 	}
 
 	query := `INSERT INTO reminders (user_id, title, recipients, email_content, schedule_type, 
-		interval_days, day_of_week, day_of_month, time_of_day, last_sent_at, next_send_at, is_active)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		schedule_date, interval_days, day_of_week, day_of_month, time_of_day, last_sent_at, next_send_at, is_active)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	result, err := r.db.Exec(query, reminder.UserID, reminder.Title, string(recipients),
-		reminder.EmailContent, reminder.ScheduleType, reminder.IntervalDays, reminder.DayOfWeek,
+		reminder.EmailContent, reminder.ScheduleType, reminder.ScheduleDate, reminder.IntervalDays, reminder.DayOfWeek,
 		reminder.DayOfMonth, reminder.TimeOfDay, reminder.LastSentAt, reminder.NextSendAt, reminder.IsActive)
 	if err != nil {
 		return fmt.Errorf("failed to create reminder: %w", err)
@@ -167,16 +167,17 @@ func (r *SQLiteRepository) CreateReminder(reminder *models.Reminder) error {
 }
 
 func (r *SQLiteRepository) GetReminder(id int64) (*models.Reminder, error) {
-	query := `SELECT id, user_id, title, recipients, email_content, schedule_type, interval_days,
+	query := `SELECT id, user_id, title, recipients, email_content, schedule_type, schedule_date, interval_days,
 		day_of_week, day_of_month, time_of_day, last_sent_at, next_send_at, is_active, created_at, updated_at
 		FROM reminders WHERE id = ?`
 
 	reminder := &models.Reminder{}
 	var recipientsJSON string
 	var lastSentAt sql.NullTime
+	var scheduleDate sql.NullString
 
 	err := r.db.QueryRow(query, id).Scan(&reminder.ID, &reminder.UserID, &reminder.Title,
-		&recipientsJSON, &reminder.EmailContent, &reminder.ScheduleType, &reminder.IntervalDays,
+		&recipientsJSON, &reminder.EmailContent, &reminder.ScheduleType, &scheduleDate, &reminder.IntervalDays,
 		&reminder.DayOfWeek, &reminder.DayOfMonth, &reminder.TimeOfDay, &lastSentAt,
 		&reminder.NextSendAt, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt)
 
@@ -195,11 +196,15 @@ func (r *SQLiteRepository) GetReminder(id int64) (*models.Reminder, error) {
 		reminder.LastSentAt = &lastSentAt.Time
 	}
 
+	if scheduleDate.Valid {
+		reminder.ScheduleDate = scheduleDate.String
+	}
+
 	return reminder, nil
 }
 
 func (r *SQLiteRepository) GetRemindersByUserID(userID int64) ([]*models.Reminder, error) {
-	query := `SELECT id, user_id, title, recipients, email_content, schedule_type, interval_days,
+	query := `SELECT id, user_id, title, recipients, email_content, schedule_type, schedule_date, interval_days,
 		day_of_week, day_of_month, time_of_day, last_sent_at, next_send_at, is_active, created_at, updated_at
 		FROM reminders WHERE user_id = ? ORDER BY created_at DESC`
 
@@ -214,9 +219,10 @@ func (r *SQLiteRepository) GetRemindersByUserID(userID int64) ([]*models.Reminde
 		reminder := &models.Reminder{}
 		var recipientsJSON string
 		var lastSentAt sql.NullTime
+		var scheduleDate sql.NullString
 
 		err := rows.Scan(&reminder.ID, &reminder.UserID, &reminder.Title, &recipientsJSON,
-			&reminder.EmailContent, &reminder.ScheduleType, &reminder.IntervalDays,
+			&reminder.EmailContent, &reminder.ScheduleType, &scheduleDate, &reminder.IntervalDays,
 			&reminder.DayOfWeek, &reminder.DayOfMonth, &reminder.TimeOfDay, &lastSentAt,
 			&reminder.NextSendAt, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt)
 		if err != nil {
@@ -231,6 +237,10 @@ func (r *SQLiteRepository) GetRemindersByUserID(userID int64) ([]*models.Reminde
 			reminder.LastSentAt = &lastSentAt.Time
 		}
 
+		if scheduleDate.Valid {
+			reminder.ScheduleDate = scheduleDate.String
+		}
+
 		reminders = append(reminders, reminder)
 	}
 
@@ -242,7 +252,7 @@ func (r *SQLiteRepository) GetRemindersByUserID(userID int64) ([]*models.Reminde
 }
 
 func (r *SQLiteRepository) GetDueReminders(now time.Time) ([]*models.Reminder, error) {
-	query := `SELECT id, user_id, title, recipients, email_content, schedule_type, interval_days,
+	query := `SELECT id, user_id, title, recipients, email_content, schedule_type, schedule_date, interval_days,
 		day_of_week, day_of_month, time_of_day, last_sent_at, next_send_at, is_active, created_at, updated_at
 		FROM reminders WHERE next_send_at <= ? AND is_active = 1`
 
@@ -257,9 +267,10 @@ func (r *SQLiteRepository) GetDueReminders(now time.Time) ([]*models.Reminder, e
 		reminder := &models.Reminder{}
 		var recipientsJSON string
 		var lastSentAt sql.NullTime
+		var scheduleDate sql.NullString
 
 		err := rows.Scan(&reminder.ID, &reminder.UserID, &reminder.Title, &recipientsJSON,
-			&reminder.EmailContent, &reminder.ScheduleType, &reminder.IntervalDays,
+			&reminder.EmailContent, &reminder.ScheduleType, &scheduleDate, &reminder.IntervalDays,
 			&reminder.DayOfWeek, &reminder.DayOfMonth, &reminder.TimeOfDay, &lastSentAt,
 			&reminder.NextSendAt, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt)
 		if err != nil {
@@ -272,6 +283,10 @@ func (r *SQLiteRepository) GetDueReminders(now time.Time) ([]*models.Reminder, e
 
 		if lastSentAt.Valid {
 			reminder.LastSentAt = &lastSentAt.Time
+		}
+
+		if scheduleDate.Valid {
+			reminder.ScheduleDate = scheduleDate.String
 		}
 
 		reminders = append(reminders, reminder)
@@ -291,11 +306,11 @@ func (r *SQLiteRepository) UpdateReminder(reminder *models.Reminder) error {
 	}
 
 	query := `UPDATE reminders SET title = ?, recipients = ?, email_content = ?, schedule_type = ?,
-		interval_days = ?, day_of_week = ?, day_of_month = ?, time_of_day = ?, last_sent_at = ?,
+		schedule_date = ?, interval_days = ?, day_of_week = ?, day_of_month = ?, time_of_day = ?, last_sent_at = ?,
 		next_send_at = ?, is_active = ?, updated_at = ? WHERE id = ?`
 
 	_, err = r.db.Exec(query, reminder.Title, string(recipients), reminder.EmailContent,
-		reminder.ScheduleType, reminder.IntervalDays, reminder.DayOfWeek, reminder.DayOfMonth,
+		reminder.ScheduleType, reminder.ScheduleDate, reminder.IntervalDays, reminder.DayOfWeek, reminder.DayOfMonth,
 		reminder.TimeOfDay, reminder.LastSentAt, reminder.NextSendAt, reminder.IsActive,
 		time.Now(), reminder.ID)
 	if err != nil {

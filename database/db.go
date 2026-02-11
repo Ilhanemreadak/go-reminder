@@ -29,5 +29,8 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to execute schema: %w", err)
 	}
 
+	// Run incremental migrations for existing databases
+	runMigrations(db)
+
 	return db, nil
 }

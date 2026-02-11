@@ -19,7 +19,7 @@ func Load() *Config {
 	return &Config{
 		DatabasePath:    getEnv("DATABASE_PATH", "data/reminders.db"),
 		EncryptionKey:   getEnv("ENCRYPTION_KEY", ""),
-		ServerPort:      getEnv("SERVER_PORT", "8080"),
+		ServerPort:      getEnv("SERVER_PORT", "9147"),
 		SessionDuration: getDurationEnv("SESSION_DURATION", 24*time.Hour),
 	}
 }

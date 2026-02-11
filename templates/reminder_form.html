@@ -13,6 +13,28 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        /* Make the entire time input clickable to open the picker */
+        input[type="time"] {
+            cursor: pointer;
+        }
+
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        input[type="time"] {
+            position: relative;
+        }
+    </style>
 </head>
 
 <body class="d-flex flex-column h-100 bg-light">
@@ -115,6 +137,8 @@
                                     <select class="form-select" id="schedule_type" name="schedule_type" required
                                         onchange="updateScheduleFields()">
                                         <option value="">Seçiniz...</option>
+                                        <option value="once" {{if eq .Reminder.ScheduleType "once" }}selected{{end}}>
+                                            Tek Seferlik</option>
                                         <option value="daily" {{if eq .Reminder.ScheduleType "daily" }}selected{{end}}>
                                             Günlük</option>
                                         <option value="weekly" {{if eq .Reminder.ScheduleType "weekly"
@@ -124,6 +148,14 @@
                                         <option value="custom" {{if eq .Reminder.ScheduleType "custom"
                                             }}selected{{end}}>Özel Aralık</option>
                                     </select>
+                                </div>
+
+                                <div id="once_field" class="mb-3" style="display: none;">
+                                    <label for="schedule_date" class="form-label fw-semibold">Tarih <span
+                                            class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" id="schedule_date" name="schedule_date"
+                                        value="{{.Reminder.ScheduleDate}}" disabled>
+                                    <div class="form-text">E-postanın gönderileceği tarih</div>
                                 </div>
 
                                 <div id="weekly_field" class="mb-3" style="display: none;">
@@ -255,17 +287,28 @@
         function updateScheduleFields() {
             const scheduleType = document.getElementById('schedule_type').value;
 
+            const onceField = document.getElementById('once_field');
             const weeklyField = document.getElementById('weekly_field');
             const monthlyField = document.getElementById('monthly_field');
             const customField = document.getElementById('custom_field');
+            const scheduleDate = document.getElementById('schedule_date');
             const dayOfWeek = document.getElementById('day_of_week');
             const dayOfMonth = document.getElementById('day_of_month');
             const intervalDays = document.getElementById('interval_days');
 
             // Show/hide and enable/disable fields based on schedule type
+            const isOnce = scheduleType === 'once';
             const isWeekly = scheduleType === 'weekly';
             const isMonthly = scheduleType === 'monthly';
             const isCustom = scheduleType === 'custom';
+
+            onceField.style.display = isOnce ? 'block' : 'none';
+            scheduleDate.disabled = !isOnce;
+            if (isOnce) {
+                scheduleDate.required = true;
+            } else {
+                scheduleDate.required = false;
+            }
 
             weeklyField.style.display = isWeekly ? 'block' : 'none';
             dayOfWeek.disabled = !isWeekly;
@@ -277,8 +320,33 @@
             intervalDays.disabled = !isCustom;
         }
 
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', updateScheduleFields);
+        // Make time input open picker on click anywhere on the input
+        document.addEventListener('DOMContentLoaded', function () {
+            updateScheduleFields();
+
+            const timeInput = document.getElementById('time_of_day');
+            if (timeInput) {
+                timeInput.addEventListener('click', function () {
+                    try {
+                        this.showPicker();
+                    } catch (e) {
+                        // showPicker() not supported in all browsers, fallback to focus
+                        this.focus();
+                    }
+                });
+            }
+
+            const dateInput = document.getElementById('schedule_date');
+            if (dateInput) {
+                dateInput.addEventListener('click', function () {
+                    try {
+                        this.showPicker();
+                    } catch (e) {
+                        this.focus();
+                    }
+                });
+            }
+        });
     </script>
 </body>
 

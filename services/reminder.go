@@ -39,6 +39,9 @@ var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9.!#$%&'*+/=?^_` + "`" + `{|}~-]+
 // Time format regex for HH:MM in 24-hour format
 var timeFormatRegex = regexp.MustCompile(`^([01][0-9]|2[0-3]):([0-5][0-9])$`)
 
+// Date format regex for YYYY-MM-DD
+var dateFormatRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+
 // ValidateReminder validates all fields of a reminder
 func (s *reminderService) ValidateReminder(reminder *models.Reminder) error {
 	var errors []string
@@ -70,13 +73,14 @@ func (s *reminderService) ValidateReminder(reminder *models.Reminder) error {
 
 	// Validate schedule type
 	validScheduleTypes := map[string]bool{
+		"once":    true,
 		"daily":   true,
 		"weekly":  true,
 		"monthly": true,
 		"custom":  true,
 	}
 	if !validScheduleTypes[reminder.ScheduleType] {
-		errors = append(errors, "schedule type must be one of: daily, weekly, monthly, custom")
+		errors = append(errors, "schedule type must be one of: once, daily, weekly, monthly, custom")
 	}
 
 	// Validate time of day format
@@ -86,6 +90,17 @@ func (s *reminderService) ValidateReminder(reminder *models.Reminder) error {
 
 	// Validate schedule-specific fields
 	switch reminder.ScheduleType {
+	case "once":
+		// Validate schedule date
+		if !dateFormatRegex.MatchString(reminder.ScheduleDate) {
+			errors = append(errors, "schedule date must be in YYYY-MM-DD format")
+		} else {
+			// Parse the date to verify it's valid
+			_, err := time.Parse("2006-01-02", reminder.ScheduleDate)
+			if err != nil {
+				errors = append(errors, "invalid schedule date")
+			}
+		}
 	case "daily":
 		// Daily only requires time of day (already validated above)
 	case "weekly":
@@ -126,13 +141,13 @@ func (s *reminderService) validateTimeFormat(timeStr string) bool {
 // CalculateNextSendTime calculates the next send time based on schedule configuration
 func (s *reminderService) CalculateNextSendTime(reminder *models.Reminder) (time.Time, error) {
 	now := time.Now()
-	
+
 	// Parse time of day
 	parts := strings.Split(reminder.TimeOfDay, ":")
 	if len(parts) != 2 {
 		return time.Time{}, fmt.Errorf("invalid time format")
 	}
-	
+
 	var hour, minute int
 	fmt.Sscanf(parts[0], "%d", &hour)
 	fmt.Sscanf(parts[1], "%d", &minute)
@@ -140,6 +155,14 @@ func (s *reminderService) CalculateNextSendTime(reminder *models.Reminder) (time
 	var nextSend time.Time
 
 	switch reminder.ScheduleType {
+	case "once":
+		// One-time reminder: use the specific schedule date
+		scheduleDate, err := time.Parse("2006-01-02", reminder.ScheduleDate)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("invalid schedule date: %w", err)
+		}
+		nextSend = time.Date(scheduleDate.Year(), scheduleDate.Month(), scheduleDate.Day(), hour, minute, 0, 0, now.Location())
+
 	case "daily":
 		// Calculate next daily occurrence
 		nextSend = time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
@@ -152,10 +175,10 @@ func (s *reminderService) CalculateNextSendTime(reminder *models.Reminder) (time
 		// Calculate next weekly occurrence
 		currentWeekday := int(now.Weekday())
 		daysUntilTarget := (reminder.DayOfWeek - currentWeekday + 7) % 7
-		
+
 		nextSend = time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
 		nextSend = nextSend.AddDate(0, 0, daysUntilTarget)
-		
+
 		// If it's the same day but time has passed, schedule for next week
 		if daysUntilTarget == 0 && (nextSend.Before(now) || nextSend.Equal(now)) {
 			nextSend = nextSend.AddDate(0, 0, 7)
@@ -164,13 +187,13 @@ func (s *reminderService) CalculateNextSendTime(reminder *models.Reminder) (time
 	case "monthly":
 		// Calculate next monthly occurrence
 		nextSend = time.Date(now.Year(), now.Month(), reminder.DayOfMonth, hour, minute, 0, 0, now.Location())
-		
+
 		// Handle invalid dates (e.g., day 31 in February)
 		if nextSend.Day() != reminder.DayOfMonth {
 			// Move to next month and try again
 			nextSend = time.Date(now.Year(), now.Month()+1, reminder.DayOfMonth, hour, minute, 0, 0, now.Location())
 		}
-		
+
 		// If time has passed this month, schedule for next month
 		if nextSend.Before(now) || nextSend.Equal(now) {
 			nextSend = time.Date(now.Year(), now.Month()+1, reminder.DayOfMonth, hour, minute, 0, 0, now.Location())
@@ -184,7 +207,7 @@ func (s *reminderService) CalculateNextSendTime(reminder *models.Reminder) (time
 		// Calculate next custom interval occurrence
 		if reminder.LastSentAt != nil {
 			// Use last sent time as base
-			nextSend = time.Date(reminder.LastSentAt.Year(), reminder.LastSentAt.Month(), 
+			nextSend = time.Date(reminder.LastSentAt.Year(), reminder.LastSentAt.Month(),
 				reminder.LastSentAt.Day(), hour, minute, 0, 0, reminder.LastSentAt.Location())
 			nextSend = nextSend.AddDate(0, 0, reminder.IntervalDays)
 		} else {
@@ -224,10 +247,10 @@ func (s *reminderService) CreateReminder(userID int64, reminder *models.Reminder
 	// Log the calculated next send time
 	logger := GetLogger()
 	logger.Info("Creating reminder", map[string]interface{}{
-		"title":        reminder.Title,
+		"title":         reminder.Title,
 		"schedule_type": reminder.ScheduleType,
-		"time_of_day":  reminder.TimeOfDay,
-		"next_send_at": nextSend.Format("2006-01-02 15:04:05"),
+		"time_of_day":   reminder.TimeOfDay,
+		"next_send_at":  nextSend.Format("2006-01-02 15:04:05"),
 	})
 
 	// Create in database

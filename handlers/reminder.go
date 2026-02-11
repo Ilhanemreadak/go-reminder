@@ -57,7 +57,6 @@ func (h *ReminderHandler) ListReminders(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-
 // NewReminderForm displays the reminder creation form (GET /reminders/new)
 func (h *ReminderHandler) NewReminderForm(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context
@@ -99,7 +98,7 @@ func (h *ReminderHandler) EditReminderForm(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Invalid reminder ID", http.StatusBadRequest)
 		return
 	}
-	
+
 	id, err := strconv.ParseInt(pathParts[2], 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid reminder ID", http.StatusBadRequest)
@@ -135,7 +134,6 @@ func (h *ReminderHandler) EditReminderForm(w http.ResponseWriter, r *http.Reques
 		return
 	}
 }
-
 
 // CreateReminder handles reminder creation (POST /reminders)
 func (h *ReminderHandler) CreateReminder(w http.ResponseWriter, r *http.Request) {
@@ -179,6 +177,7 @@ func (h *ReminderHandler) CreateReminder(w http.ResponseWriter, r *http.Request)
 		Recipients:   recipients,
 		EmailContent: r.FormValue("email_content"),
 		ScheduleType: r.FormValue("schedule_type"),
+		ScheduleDate: r.FormValue("schedule_date"),
 		IntervalDays: intervalDays,
 		DayOfWeek:    dayOfWeek,
 		DayOfMonth:   dayOfMonth,
@@ -225,7 +224,7 @@ func (h *ReminderHandler) UpdateReminder(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Invalid reminder ID", http.StatusBadRequest)
 		return
 	}
-	
+
 	id, err := strconv.ParseInt(pathParts[2], 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid reminder ID", http.StatusBadRequest)
@@ -261,6 +260,7 @@ func (h *ReminderHandler) UpdateReminder(w http.ResponseWriter, r *http.Request)
 		Recipients:   recipients,
 		EmailContent: r.FormValue("email_content"),
 		ScheduleType: r.FormValue("schedule_type"),
+		ScheduleDate: r.FormValue("schedule_date"),
 		IntervalDays: intervalDays,
 		DayOfWeek:    dayOfWeek,
 		DayOfMonth:   dayOfMonth,
@@ -307,7 +307,7 @@ func (h *ReminderHandler) DeleteReminder(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Invalid reminder ID", http.StatusBadRequest)
 		return
 	}
-	
+
 	id, err := strconv.ParseInt(pathParts[2], 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid reminder ID", http.StatusBadRequest)

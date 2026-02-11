@@ -13,20 +13,20 @@ import (
 
 // SchedulerService handles background processing of due reminders
 type SchedulerService struct {
-	repo           database.Repository
-	emailService   *EmailService
-	reminderService ReminderService
+	repo              database.Repository
+	emailService      *EmailService
+	reminderService   ReminderService
 	encryptionService *EncryptionService
-	logger         *Logger
-	ticker         *time.Ticker
-	stopChan       chan struct{}
-	wg             sync.WaitGroup
-	ctx            context.Context
-	cancel         context.CancelFunc
+	logger            *Logger
+	ticker            *time.Ticker
+	stopChan          chan struct{}
+	wg                sync.WaitGroup
+	ctx               context.Context
+	cancel            context.CancelFunc
 }
 
 // NewSchedulerService creates a new scheduler service
-func NewSchedulerService(repo database.Repository, emailService *EmailService, 
+func NewSchedulerService(repo database.Repository, emailService *EmailService,
 	reminderService ReminderService, encryptionService *EncryptionService) *SchedulerService {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &SchedulerService{
@@ -44,14 +44,14 @@ func NewSchedulerService(repo database.Repository, emailService *EmailService,
 // Start begins the background scheduler goroutine
 func (s *SchedulerService) Start() error {
 	s.logger.LogSchedulerEvent("Starting scheduler service")
-	
+
 	// Create ticker that fires every 60 seconds
 	s.ticker = time.NewTicker(60 * time.Second)
-	
+
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		
+
 		// Panic recovery for scheduler goroutine
 		defer func() {
 			if r := recover(); r != nil {
@@ -60,7 +60,7 @@ func (s *SchedulerService) Start() error {
 				})
 			}
 		}()
-		
+
 		for {
 			select {
 			case <-s.ticker.C:
@@ -73,7 +73,7 @@ func (s *SchedulerService) Start() error {
 							})
 						}
 					}()
-					
+
 					if err := s.ProcessDueReminders(); err != nil {
 						s.logger.Error("Failed to process due reminders", map[string]interface{}{
 							"error": err.Error(),
@@ -89,22 +89,22 @@ func (s *SchedulerService) Start() error {
 			}
 		}
 	}()
-	
+
 	return nil
 }
 
 // Stop gracefully stops the scheduler service
 func (s *SchedulerService) Stop() error {
 	s.logger.LogSchedulerEvent("Stopping scheduler service")
-	
+
 	if s.ticker != nil {
 		s.ticker.Stop()
 	}
-	
+
 	s.cancel()
 	close(s.stopChan)
 	s.wg.Wait()
-	
+
 	s.logger.LogSchedulerEvent("Scheduler service stopped")
 	return nil
 }
@@ -112,30 +112,30 @@ func (s *SchedulerService) Stop() error {
 // ProcessDueReminders checks for and processes all due reminders
 func (s *SchedulerService) ProcessDueReminders() error {
 	now := time.Now()
-	
+
 	s.logger.Info("Checking for due reminders", map[string]interface{}{
 		"current_time": now.Format("2006-01-02 15:04:05"),
 	})
-	
+
 	// Query reminders where next_send_at <= current time
 	dueReminders, err := s.repo.GetDueReminders(now)
 	if err != nil {
 		s.logger.LogDatabaseError("GetDueReminders", err)
 		return fmt.Errorf("failed to get due reminders: %w", err)
 	}
-	
+
 	s.logger.Info("Due reminders check complete", map[string]interface{}{
 		"count": len(dueReminders),
 	})
-	
+
 	if len(dueReminders) == 0 {
 		return nil
 	}
-	
+
 	s.logger.LogSchedulerEvent("Found due reminders to process", map[string]interface{}{
 		"count": len(dueReminders),
 	})
-	
+
 	// Process each due reminder
 	for _, reminder := range dueReminders {
 		s.logger.Info("Processing reminder", map[string]interface{}{
@@ -143,7 +143,7 @@ func (s *SchedulerService) ProcessDueReminders() error {
 			"title":        reminder.Title,
 			"next_send_at": reminder.NextSendAt.Format("2006-01-02 15:04:05"),
 		})
-		
+
 		if err := s.processReminder(reminder); err != nil {
 			s.logger.Error("Failed to process reminder", map[string]interface{}{
 				"reminder_id": reminder.ID,
@@ -151,14 +151,14 @@ func (s *SchedulerService) ProcessDueReminders() error {
 			})
 		}
 	}
-	
+
 	return nil
 }
 
 // processReminder processes a single reminder with retry logic
 func (s *SchedulerService) processReminder(reminder *models.Reminder) error {
 	s.logger.LogReminderProcessing(reminder.ID, reminder.Title, "processing")
-	
+
 	// Load SMTP settings for the reminder's user
 	smtpSettings, err := s.repo.GetSMTPSettings(reminder.UserID)
 	if err != nil {
@@ -168,7 +168,7 @@ func (s *SchedulerService) processReminder(reminder *models.Reminder) error {
 		})
 		return fmt.Errorf("failed to load SMTP settings for user %d: %w", reminder.UserID, err)
 	}
-	
+
 	// Decrypt SMTP password
 	decryptedPassword, err := s.encryptionService.Decrypt(smtpSettings.Password)
 	if err != nil {
@@ -180,11 +180,11 @@ func (s *SchedulerService) processReminder(reminder *models.Reminder) error {
 		return fmt.Errorf("failed to decrypt SMTP password: %w", err)
 	}
 	smtpSettings.Password = decryptedPassword
-	
+
 	// Attempt to send email with retry logic
 	var lastErr error
 	retryDelays := []time.Duration{1 * time.Minute, 5 * time.Minute, 15 * time.Minute}
-	
+
 	for attempt := 0; attempt <= len(retryDelays); attempt++ {
 		if attempt > 0 {
 			// Wait before retry
@@ -194,7 +194,7 @@ func (s *SchedulerService) processReminder(reminder *models.Reminder) error {
 				"attempt":     attempt,
 				"delay":       delay.String(),
 			})
-			
+
 			select {
 			case <-time.After(delay):
 				// Continue with retry
@@ -202,17 +202,33 @@ func (s *SchedulerService) processReminder(reminder *models.Reminder) error {
 				return fmt.Errorf("scheduler stopped during retry")
 			}
 		}
-		
+
 		// Send email to all recipients
 		err = s.emailService.SendEmail(reminder.Recipients, reminder.Title, reminder.EmailContent, smtpSettings, &reminder.ID, reminder.UserID)
 		if err == nil {
 			// Success - update timestamps and schedule next send
 			s.logger.LogEmailSent(reminder.ID, reminder.Recipients, true, nil)
-			
+
 			// Update last_sent_at timestamp
 			now := time.Now()
 			reminder.LastSentAt = &now
-			
+
+			// For one-time reminders, deactivate after sending
+			if reminder.ScheduleType == "once" {
+				reminder.IsActive = false
+				if err := s.repo.UpdateReminder(reminder); err != nil {
+					s.logger.LogDatabaseError("UpdateReminder", err, map[string]interface{}{
+						"reminder_id": reminder.ID,
+					})
+					return fmt.Errorf("failed to update reminder: %w", err)
+				}
+
+				s.logger.LogReminderProcessing(reminder.ID, reminder.Title, "completed", map[string]interface{}{
+					"schedule_type": "once",
+				})
+				return nil
+			}
+
 			// Calculate and update next_send_at for recurring reminders
 			nextSend, err := s.reminderService.CalculateNextSendTime(reminder)
 			if err != nil {
@@ -223,7 +239,7 @@ func (s *SchedulerService) processReminder(reminder *models.Reminder) error {
 				return fmt.Errorf("failed to calculate next send time: %w", err)
 			}
 			reminder.NextSendAt = nextSend
-			
+
 			// Update reminder in database
 			if err := s.repo.UpdateReminder(reminder); err != nil {
 				s.logger.LogDatabaseError("UpdateReminder", err, map[string]interface{}{
@@ -231,17 +247,17 @@ func (s *SchedulerService) processReminder(reminder *models.Reminder) error {
 				})
 				return fmt.Errorf("failed to update reminder: %w", err)
 			}
-			
+
 			s.logger.LogReminderProcessing(reminder.ID, reminder.Title, "scheduled", map[string]interface{}{
 				"next_send_at": nextSend.Format(time.RFC3339),
 			})
 			return nil
 		}
-		
+
 		lastErr = err
 		s.logger.LogEmailSent(reminder.ID, reminder.Recipients, false, err)
 	}
-	
+
 	// All retries exhausted - mark reminder as failed
 	s.logger.Error("All retry attempts exhausted for reminder", map[string]interface{}{
 		"reminder_id": reminder.ID,
@@ -254,7 +270,7 @@ func (s *SchedulerService) processReminder(reminder *models.Reminder) error {
 			"action":      "mark_as_failed",
 		})
 	}
-	
+
 	return fmt.Errorf("failed to send reminder after %d attempts: %w", len(retryDelays)+1, lastErr)
 }
 

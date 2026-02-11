@@ -1,5 +1,7 @@
 package database
 
+import "database/sql"
+
 const schema = `
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
@@ -26,6 +28,7 @@ CREATE TABLE IF NOT EXISTS reminders (
     recipients TEXT NOT NULL,
     email_content TEXT NOT NULL,
     schedule_type TEXT NOT NULL,
+    schedule_date TEXT,
     interval_days INTEGER,
     day_of_week INTEGER,
     day_of_month INTEGER,
@@ -82,8 +85,14 @@ CREATE INDEX IF NOT EXISTS idx_email_logs_sent_at ON email_logs(sent_at);
 CREATE INDEX IF NOT EXISTS idx_email_logs_user_sent ON email_logs(user_id, sent_at DESC);
 `
 
-
 // GetSchema returns the database schema for testing purposes
 func GetSchema() string {
 	return schema
+}
+
+// runMigrations runs incremental migrations for existing databases
+func runMigrations(db *sql.DB) {
+	// Add schedule_date column to reminders table (for one-time reminders)
+	// SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we ignore the error
+	db.Exec(`ALTER TABLE reminders ADD COLUMN schedule_date TEXT`)
 }

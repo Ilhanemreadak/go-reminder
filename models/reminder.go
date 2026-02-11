@@ -9,7 +9,8 @@ type Reminder struct {
 	Title        string
 	Recipients   []string // Email addresses
 	EmailContent string
-	ScheduleType string // "daily", "weekly", "monthly", "custom"
+	ScheduleType string // "once", "daily", "weekly", "monthly", "custom"
+	ScheduleDate string // YYYY-MM-DD format, for one-time ("once") reminders
 	IntervalDays int    // For custom schedules
 	DayOfWeek    int    // 0-6 for weekly (0=Sunday)
 	DayOfMonth   int    // 1-31 for monthly
