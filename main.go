@@ -253,7 +253,7 @@ func main() {
 	// Start HTTP server in a goroutine
 	serverErrors := make(chan error, 1)
 	go func() {
-		logger.Info("Starting Email Reminder System", map[string]interface{}{
+		logger.Info("Starting RemindMe", map[string]interface{}{
 			"port":             cfg.ServerPort,
 			"database":         cfg.DatabasePath,
 			"session_duration": cfg.SessionDuration.String(),

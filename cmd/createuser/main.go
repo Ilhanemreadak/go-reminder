@@ -22,12 +22,12 @@ func main() {
 	password := flag.String("password", "", "Password for the new user (not recommended, use interactive mode)")
 	dbPath := flag.String("db", "", "Path to database file (default: from config)")
 	interactive := flag.Bool("i", false, "Interactive mode (prompts for username and password)")
-	
+
 	flag.Parse()
 
 	// Load configuration
 	cfg := config.Load()
-	
+
 	// Use custom database path if provided
 	if *dbPath != "" {
 		cfg.DatabasePath = *dbPath
@@ -47,7 +47,7 @@ func main() {
 
 	// Get username and password
 	var user, pass string
-	
+
 	if *interactive || (*username == "" && *password == "") {
 		// Interactive mode
 		user, pass, err = promptForCredentials()
@@ -62,9 +62,9 @@ func main() {
 			flag.Usage()
 			os.Exit(1)
 		}
-		
+
 		user = *username
-		
+
 		if *password == "" {
 			// Prompt for password if not provided
 			fmt.Print("Enter password: ")
@@ -86,7 +86,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Error: Username cannot be empty")
 		os.Exit(1)
 	}
-	
+
 	if pass == "" {
 		fmt.Fprintln(os.Stderr, "Error: Password cannot be empty")
 		os.Exit(1)
@@ -119,13 +119,13 @@ func main() {
 	}
 
 	fmt.Printf("✓ User '%s' created successfully (ID: %d)\n", newUser.Username, newUser.ID)
-	fmt.Println("\nYou can now log in to the Email Reminder System with these credentials.")
+	fmt.Println("\nYou can now log in to RemindMe with these credentials.")
 }
 
 // promptForCredentials prompts the user for username and password interactively
 func promptForCredentials() (string, string, error) {
 	reader := bufio.NewReader(os.Stdin)
-	
+
 	// Prompt for username
 	fmt.Print("Enter username: ")
 	username, err := reader.ReadString('\n')
@@ -133,7 +133,7 @@ func promptForCredentials() (string, string, error) {
 		return "", "", fmt.Errorf("failed to read username: %w", err)
 	}
 	username = strings.TrimSpace(username)
-	
+
 	// Prompt for password
 	fmt.Print("Enter password: ")
 	passwordBytes, err := term.ReadPassword(int(syscall.Stdin))
@@ -142,7 +142,7 @@ func promptForCredentials() (string, string, error) {
 		return "", "", fmt.Errorf("failed to read password: %w", err)
 	}
 	password := string(passwordBytes)
-	
+
 	// Confirm password
 	fmt.Print("Confirm password: ")
 	confirmBytes, err := term.ReadPassword(int(syscall.Stdin))
@@ -151,10 +151,10 @@ func promptForCredentials() (string, string, error) {
 		return "", "", fmt.Errorf("failed to read password confirmation: %w", err)
 	}
 	confirm := string(confirmBytes)
-	
+
 	if password != confirm {
 		return "", "", fmt.Errorf("passwords do not match")
 	}
-	
+
 	return username, password, nil
 }

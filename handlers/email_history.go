@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"email-reminder-system/models"
 	"email-reminder-system/services"
 	"encoding/json"
@@ -37,7 +38,7 @@ func (h *EmailHistoryHandler) ListEmailHistory(w http.ResponseWriter, r *http.Re
 
 	// Parse query parameters
 	query := r.URL.Query()
-	
+
 	// Parse page number (default 1)
 	page := 1
 	if pageStr := query.Get("page"); pageStr != "" {
@@ -48,7 +49,7 @@ func (h *EmailHistoryHandler) ListEmailHistory(w http.ResponseWriter, r *http.Re
 
 	// Parse status filter
 	status := query.Get("status")
-	
+
 	// Parse reminder_id filter
 	var reminderID *int64
 	if reminderIDStr := query.Get("reminder_id"); reminderIDStr != "" {
@@ -83,12 +84,28 @@ func (h *EmailHistoryHandler) ListEmailHistory(w http.ResponseWriter, r *http.Re
 		PageSize:   20,
 	}
 
+	services.GetLogger().Info("Listing email history", map[string]interface{}{
+		"user_id":     user.ID,
+		"page":        page,
+		"status":      status,
+		"reminder_id": reminderID,
+	})
+
 	// Get email history
 	result, err := h.historyService.GetEmailHistory(filter)
 	if err != nil {
+		services.GetLogger().Error("Failed to load email history", map[string]interface{}{
+			"error": err.Error(),
+		})
 		http.Error(w, "Failed to load email history", http.StatusInternalServerError)
 		return
 	}
+
+	services.GetLogger().Info("Email history result", map[string]interface{}{
+		"total_count": result.TotalCount,
+		"logs_count":  len(result.Logs),
+		"total_pages": result.TotalPages,
+	})
 
 	// Get user's reminders for filter dropdown
 	reminders, err := h.historyService.GetUserReminders(user.ID)
@@ -134,12 +151,17 @@ func (h *EmailHistoryHandler) ListEmailHistory(w http.ResponseWriter, r *http.Re
 		"FiltersApplied":  filtersApplied,
 	}
 
-	// Render template
-	err = h.templates.ExecuteTemplate(w, "email_history.html", data)
+	// Render template to buffer first to catch errors
+	var buf bytes.Buffer
+	err = h.templates.ExecuteTemplate(&buf, "email_history.html", data)
 	if err != nil {
-		http.Error(w, "Failed to render page", http.StatusInternalServerError)
+		services.GetLogger().Error("Template execution failed", map[string]interface{}{
+			"error": err.Error(),
+		})
+		http.Error(w, "Failed to render page: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	buf.WriteTo(w)
 }
 
 // GetEmailLogDetail returns detailed information about a specific email log (GET /email-history/:id)
