@@ -40,8 +40,11 @@ func (h *SettingsHandler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	
 	// Prepare template data
 	data := map[string]interface{}{
-		"Success": r.URL.Query().Get("success"),
-		"Error":   r.URL.Query().Get("error"),
+		"User":            user,
+		"IsAuthenticated": true,
+		"ActivePage":      "settings",
+		"Success":         r.URL.Query().Get("success"),
+		"Error":           r.URL.Query().Get("error"),
 	}
 
 	// If settings exist, add them to template data with masked password
@@ -162,15 +165,17 @@ func (h *SettingsHandler) TestSMTPSettings(w http.ResponseWriter, r *http.Reques
 	fromName := strings.TrimSpace(r.FormValue("from_name"))
 	useTLS := r.FormValue("use_tls") == "on"
 
-	// Debug log
+	// Debug log - show what we received from form
 	logger := services.GetLogger()
-	logger.Info("Testing SMTP settings - Form values", map[string]interface{}{
-		"host":         host,
-		"port":         port,
-		"username":     username,
-		"from_email":   fromEmail,
-		"use_tls":      useTLS,
-		"has_password": password != "",
+	logger.Info("Testing SMTP settings - Form values received", map[string]interface{}{
+		"host":              host,
+		"port":              port,
+		"username":          username,
+		"from_email":        fromEmail,
+		"use_tls_raw":       r.FormValue("use_tls"),
+		"use_tls_parsed":    useTLS,
+		"has_password":      password != "",
+		"password_is_masked": password == "********",
 	})
 
 	// If form values are empty or password is masked, load from database
@@ -181,6 +186,13 @@ func (h *SettingsHandler) TestSMTPSettings(w http.ResponseWriter, r *http.Reques
 			http.Redirect(w, r, "/settings?error="+url.QueryEscape("Ayarlar bulunamadı: "+err.Error()), http.StatusSeeOther)
 			return
 		}
+		
+		// Log what we got from database
+		logger.Info("Database settings loaded", map[string]interface{}{
+			"db_host":     existingSettings.Host,
+			"db_port":     existingSettings.Port,
+			"db_use_tls":  existingSettings.UseTLS,
+		})
 		
 		// Use database values if form values are empty
 		if host == "" {
@@ -201,8 +213,22 @@ func (h *SettingsHandler) TestSMTPSettings(w http.ResponseWriter, r *http.Reques
 		if fromName == "" {
 			fromName = existingSettings.FromName
 		}
-		// useTLS from form is fine
+		// If form didn't send use_tls (checkbox not checked), use database value
+		if r.FormValue("use_tls") == "" {
+			useTLS = existingSettings.UseTLS
+			logger.Info("Using database TLS setting", map[string]interface{}{
+				"use_tls": useTLS,
+			})
+		}
 	}
+
+	// Log final settings that will be tested
+	logger.Info("Final settings for test", map[string]interface{}{
+		"host":     host,
+		"port":     port,
+		"username": username,
+		"use_tls":  useTLS,
+	})
 
 	// Create settings object
 	settings := &models.SMTPSettings{

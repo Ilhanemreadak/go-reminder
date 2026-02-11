@@ -83,13 +83,18 @@ func main() {
 		os.Exit(1)
 	}
 	settingsService := services.NewSettingsService(repo, encryptionService)
-	emailService := services.NewEmailService()
+	emailHistoryService := services.NewEmailHistoryService(repo, logger)
+	emailService := services.NewEmailService(emailHistoryService)
 	
 	// Initialize scheduler service
 	schedulerService := services.NewSchedulerService(repo, emailService, reminderService, encryptionService)
 
-	// Load templates
-	templates, err := template.ParseGlob("templates/*.html")
+	// Load templates with custom functions
+	funcMap := template.FuncMap{
+		"sub": func(a, b int) int { return a - b },
+		"add": func(a, b int) int { return a + b },
+	}
+	templates, err := template.New("").Funcs(funcMap).ParseGlob("templates/*.html")
 	if err != nil {
 		logger.Error("Failed to load templates", map[string]interface{}{
 			"error": err.Error(),
@@ -101,6 +106,7 @@ func main() {
 	authHandler := handlers.NewAuthHandler(authService, templates)
 	reminderHandler := handlers.NewReminderHandler(reminderService, templates)
 	settingsHandler := handlers.NewSettingsHandler(settingsService, emailService, templates)
+	emailHistoryHandler := handlers.NewEmailHistoryHandler(emailHistoryService, templates)
 	authMiddleware := handlers.NewAuthMiddleware(authService)
 
 	// Set up HTTP routes with authentication middleware
@@ -169,6 +175,24 @@ func main() {
 	
 	// Protected routes - Test SMTP settings
 	http.HandleFunc("/settings/test", handlers.RecoverMiddleware(authMiddleware.RequireAuth(settingsHandler.TestSMTPSettings)))
+
+	// Protected routes - Email History
+	http.HandleFunc("/email-history", handlers.RecoverMiddleware(authMiddleware.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			emailHistoryHandler.ListEmailHistory(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+	
+	// Protected routes - Email History Detail
+	http.HandleFunc("/email-history/", handlers.RecoverMiddleware(authMiddleware.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			emailHistoryHandler.GetEmailLogDetail(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
 
 	// Serve static files
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))

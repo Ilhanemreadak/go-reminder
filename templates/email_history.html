@@ -1,0 +1,428 @@
+{{define "email_history.html"}}
+<!DOCTYPE html>
+<html lang="tr" class="h-100">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-posta Geçmişi - Email Reminder System</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body class="d-flex flex-column h-100 bg-light">
+    {{if .IsAuthenticated}}
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="bi bi-envelope-check me-2"></i>Email Reminder System
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {{if eq .ActivePage " reminders"}}active{{end}}" href="/">
+                            <i class="bi bi-bell me-1"></i>Hatırlatıcılar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{if eq .ActivePage " email-history"}}active{{end}}" href="/email-history">
+                            <i class="bi bi-clock-history me-1"></i>E-posta Geçmişi
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{if eq .ActivePage " settings"}}active{{end}}" href="/settings">
+                            <i class="bi bi-gear me-1"></i>SMTP Ayarları
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <form method="POST" action="/logout" class="d-inline">
+                            <button type="submit" class="btn btn-outline-light btn-sm ms-2">
+                                <i class="bi bi-box-arrow-right me-1"></i>Çıkış
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {{end}}
+
+    <main class="flex-shrink-0 {{if .IsAuthenticated}}py-4{{else}}py-5{{end}}">
+        <div class="container">
+            <!-- Page Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="bi bi-clock-history text-primary me-2"></i>E-posta Geçmişi
+                </h2>
+            </div>
+
+            <!-- Alerts -->
+            {{if .Error}}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>{{.Error}}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {{end}}
+
+            {{if .Success}}
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>{{.Success}}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {{end}}
+
+            <!-- Filter Panel -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="bi bi-funnel me-2"></i>Filtreler
+                    </h5>
+                    <form method="GET" action="/email-history">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="start_date" class="form-label">Başlangıç Tarihi</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date"
+                                    value="{{.StartDate}}">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="end_date" class="form-label">Bitiş Tarihi</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date"
+                                    value="{{.EndDate}}">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="status" class="form-label">Durum</label>
+                                <select class="form-select" id="status" name="status">
+                                    <option value="">Tümü</option>
+                                    <option value="success" {{if eq .Status "success" }}selected{{end}}>Başarılı
+                                    </option>
+                                    <option value="failure" {{if eq .Status "failure" }}selected{{end}}>Başarısız
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="reminder_id" class="form-label">Hatırlatıcı</label>
+                                <select class="form-select" id="reminder_id" name="reminder_id">
+                                    <option value="">Tümü</option>
+                                    {{range .Reminders}}
+                                    <option value="{{.ID}}" {{if eq $.ReminderID .ID}}selected{{end}}>{{.Title}}
+                                    </option>
+                                    {{end}}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search me-1"></i>Filtrele
+                            </button>
+                            <a href="/email-history" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle me-1"></i>Temizle
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Summary -->
+            <div class="mb-3">
+                {{if .Logs}}
+                <p class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    {{if .FiltersApplied}}
+                    {{.TotalCount}} e-posta bulundu
+                    {{else}}
+                    Toplam {{.TotalCount}} e-posta
+                    {{end}}
+                </p>
+                {{else}}
+                <div class="alert alert-info">
+                    <i class="bi bi-inbox me-2"></i>
+                    {{if .FiltersApplied}}
+                    Filtrelere uygun e-posta bulunamadı
+                    {{else}}
+                    Henüz gönderilmiş e-posta bulunmamaktadır
+                    {{end}}
+                </div>
+                {{end}}
+            </div>
+
+            <!-- Email History Table -->
+            {{if .Logs}}
+            <div class="card shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-primary">
+                            <tr>
+                                <th>Hatırlatıcı Başlığı</th>
+                                <th>Alıcı Sayısı</th>
+                                <th>Durum</th>
+                                <th>Gönderim Tarihi</th>
+                                <th class="text-center">Detaylar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Logs}}
+                            <tr>
+                                <td>
+                                    {{if .ReminderTitle}}
+                                    <i class="bi bi-bell me-1"></i>{{.ReminderTitle}}
+                                    {{else}}
+                                    <em class="text-muted"><i class="bi bi-trash me-1"></i>Hatırlatıcı silinmiş</em>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    <i class="bi bi-people me-1"></i>{{len .Recipients}} alıcı
+                                </td>
+                                <td>
+                                    {{if eq .Status "success"}}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle me-1"></i>Başarılı
+                                    </span>
+                                    {{else if eq .Status "failure"}}
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-x-circle me-1"></i>Başarısız
+                                    </span>
+                                    {{else}}
+                                    <span class="badge bg-warning">
+                                        <i class="bi bi-hourglass-split me-1"></i>Beklemede
+                                    </span>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    <i class="bi bi-calendar3 me-1"></i>{{.SentAt.Format "02.01.2006 15:04"}}
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="showDetail({{.ID}})">
+                                        <i class="bi bi-eye me-1"></i>Görüntüle
+                                    </button>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {{if gt .TotalPages 1}}
+            <nav aria-label="Sayfa navigasyonu" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {{if gt .Page 1}}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{sub .Page 1}}{{.FilterQuery}}">
+                            <i class="bi bi-chevron-left"></i> Önceki
+                        </a>
+                    </li>
+                    {{else}}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-left"></i> Önceki</span>
+                    </li>
+                    {{end}}
+
+                    <li class="page-item active">
+                        <span class="page-link">Sayfa {{.Page}} / {{.TotalPages}}</span>
+                    </li>
+
+                    {{if lt .Page .TotalPages}}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{add .Page 1}}{{.FilterQuery}}">
+                            Sonraki <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {{else}}
+                    <li class="page-item disabled">
+                        <span class="page-link">Sonraki <i class="bi bi-chevron-right"></i></span>
+                    </li>
+                    {{end}}
+                </ul>
+            </nav>
+            {{end}}
+            {{end}}
+        </div>
+
+        <!-- Detail Modal -->
+        <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" id="detailModalLabel">
+                            <i class="bi bi-envelope-open me-2"></i>E-posta Detayları
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Kapat"></button>
+                    </div>
+                    <div class="modal-body" id="detailContent">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Yükleniyor...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-lg me-1"></i>Kapat
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    {{if .IsAuthenticated}}
+    <footer class="footer mt-auto py-3 bg-white border-top">
+        <div class="container text-center text-muted">
+            <small>&copy; 2026 Email Reminder System. Tüm hakları saklıdır.</small>
+        </div>
+    </footer>
+    {{end}}
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script>
+        let detailModal;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+        });
+
+        function showDetail(logID) {
+            const content = document.getElementById('detailContent');
+
+            // Show loading state
+            content.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Yükleniyor...</span>
+            </div>
+        </div>
+    `;
+
+            detailModal.show();
+
+            fetch('/email-history/' + logID)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('E-posta detayları yüklenemedi');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    content.innerHTML = renderDetail(data);
+                })
+                .catch(error => {
+                    content.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Hata: ${escapeHtml(error.message)}
+                </div>
+            `;
+                });
+        }
+
+        function renderDetail(log) {
+            let html = '<div class="container-fluid">';
+
+            // Reminder
+            html += '<div class="row mb-3">';
+            html += '<div class="col-md-3"><strong><i class="bi bi-bell me-1"></i>Hatırlatıcı:</strong></div>';
+            html += '<div class="col-md-9">';
+            if (log.ReminderTitle) {
+                html += escapeHtml(log.ReminderTitle);
+            } else {
+                html += '<em class="text-muted">Hatırlatıcı silinmiş</em>';
+            }
+            html += '</div></div>';
+
+            // Recipients
+            html += '<div class="row mb-3">';
+            html += '<div class="col-md-3"><strong><i class="bi bi-people me-1"></i>Alıcılar:</strong></div>';
+            html += '<div class="col-md-9">' + escapeHtml(log.Recipients.join(', ')) + '</div>';
+            html += '</div>';
+
+            // Subject
+            html += '<div class="row mb-3">';
+            html += '<div class="col-md-3"><strong><i class="bi bi-tag me-1"></i>Konu:</strong></div>';
+            html += '<div class="col-md-9">' + escapeHtml(log.Subject) + '</div>';
+            html += '</div>';
+
+            // Status
+            html += '<div class="row mb-3">';
+            html += '<div class="col-md-3"><strong><i class="bi bi-info-circle me-1"></i>Durum:</strong></div>';
+            html += '<div class="col-md-9">';
+            if (log.Status === 'success') {
+                html += '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Başarılı</span>';
+            } else if (log.Status === 'failure') {
+                html += '<span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Başarısız</span>';
+            } else {
+                html += '<span class="badge bg-warning"><i class="bi bi-hourglass-split me-1"></i>Beklemede</span>';
+            }
+            html += '</div></div>';
+
+            // Sent time
+            html += '<div class="row mb-3">';
+            html += '<div class="col-md-3"><strong><i class="bi bi-calendar3 me-1"></i>Gönderim Zamanı:</strong></div>';
+            html += '<div class="col-md-9">' + formatDate(log.SentAt) + '</div>';
+            html += '</div>';
+
+            // Error message (only for failures)
+            if (log.ErrorMessage && log.Status === 'failure') {
+                html += '<div class="row mb-3">';
+                html += '<div class="col-12">';
+                html += '<div class="alert alert-danger">';
+                html += '<strong><i class="bi bi-exclamation-triangle me-1"></i>Hata Mesajı:</strong>';
+                html += '<pre class="mb-0 mt-2">' + escapeHtml(log.ErrorMessage) + '</pre>';
+                html += '</div>';
+                html += '</div></div>';
+            }
+
+            // Email content
+            html += '<div class="row mb-3">';
+            html += '<div class="col-12">';
+            html += '<strong><i class="bi bi-file-text me-1"></i>İçerik:</strong>';
+            html += '<div class="card mt-2">';
+            html += '<div class="card-body"><pre class="mb-0">' + escapeHtml(log.EmailContent) + '</pre></div>';
+            html += '</div>';
+            html += '</div></div>';
+
+            // Action button
+            if (log.ReminderID) {
+                html += '<div class="row">';
+                html += '<div class="col-12">';
+                html += '<a href="/reminders/' + log.ReminderID + '/edit" class="btn btn-primary">';
+                html += '<i class="bi bi-arrow-right-circle me-1"></i>Hatırlatıcıya Git';
+                html += '</a>';
+                html += '</div></div>';
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return day + '.' + month + '.' + year + ' ' + hours + ':' + minutes + ':' + seconds;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>
+{{end}}

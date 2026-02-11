@@ -54,11 +54,32 @@ CREATE TABLE IF NOT EXISTS smtp_settings (
     UNIQUE(user_id)
 );
 
+-- Email Logs table
+CREATE TABLE IF NOT EXISTS email_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reminder_id INTEGER,
+    user_id INTEGER NOT NULL,
+    recipients TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    email_content TEXT NOT NULL,
+    status TEXT NOT NULL,
+    error_message TEXT,
+    sent_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (reminder_id) REFERENCES reminders(id) ON DELETE SET NULL
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_reminders_user_id ON reminders(user_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_next_send_at ON reminders(next_send_at);
 CREATE INDEX IF NOT EXISTS idx_smtp_settings_user_id ON smtp_settings(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_logs_user_id ON email_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_logs_reminder_id ON email_logs(reminder_id);
+CREATE INDEX IF NOT EXISTS idx_email_logs_status ON email_logs(status);
+CREATE INDEX IF NOT EXISTS idx_email_logs_sent_at ON email_logs(sent_at);
+CREATE INDEX IF NOT EXISTS idx_email_logs_user_sent ON email_logs(user_id, sent_at DESC);
 `
 
 

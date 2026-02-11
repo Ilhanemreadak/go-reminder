@@ -33,6 +33,12 @@ type Repository interface {
 	// SMTP Settings operations
 	GetSMTPSettings(userID int64) (*models.SMTPSettings, error)
 	UpsertSMTPSettings(settings *models.SMTPSettings) error
+
+	// Email Log operations
+	CreateEmailLog(log *models.EmailLog) (int64, error)
+	UpdateEmailLogStatus(id int64, status string, errorMessage *string, sentAt time.Time) error
+	GetEmailLog(id int64, userID int64) (*models.EmailLog, error)
+	GetEmailLogs(filter *models.EmailHistoryFilter) (*models.EmailHistoryResult, error)
 }
 
 // SQLiteRepository implements Repository interface using SQLite
@@ -365,4 +371,206 @@ func (r *SQLiteRepository) UpsertSMTPSettings(settings *models.SMTPSettings) err
 
 	settings.UpdatedAt = time.Now()
 	return nil
+}
+
+// Email Log operations
+
+func (r *SQLiteRepository) CreateEmailLog(log *models.EmailLog) (int64, error) {
+	recipients, err := json.Marshal(log.Recipients)
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal recipients: %w", err)
+	}
+
+	query := `INSERT INTO email_logs (reminder_id, user_id, recipients, subject, email_content, 
+		status, error_message, sent_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	result, err := r.db.Exec(query, log.ReminderID, log.UserID, string(recipients),
+		log.Subject, log.EmailContent, log.Status, log.ErrorMessage, log.SentAt, time.Now())
+	if err != nil {
+		return 0, fmt.Errorf("failed to create email log: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get email log ID: %w", err)
+	}
+
+	return id, nil
+}
+
+func (r *SQLiteRepository) UpdateEmailLogStatus(id int64, status string, errorMessage *string, sentAt time.Time) error {
+	query := `UPDATE email_logs SET status = ?, error_message = ?, sent_at = ? WHERE id = ?`
+
+	_, err := r.db.Exec(query, status, errorMessage, sentAt, id)
+	if err != nil {
+		return fmt.Errorf("failed to update email log status: %w", err)
+	}
+
+	return nil
+}
+
+func (r *SQLiteRepository) GetEmailLog(id int64, userID int64) (*models.EmailLog, error) {
+	query := `SELECT el.id, el.reminder_id, el.user_id, el.recipients, el.subject, el.email_content,
+		el.status, el.error_message, el.sent_at, el.created_at, r.title
+		FROM email_logs el
+		LEFT JOIN reminders r ON el.reminder_id = r.id
+		WHERE el.id = ? AND el.user_id = ?`
+
+	log := &models.EmailLog{}
+	var recipientsJSON string
+	var reminderID sql.NullInt64
+	var errorMessage sql.NullString
+	var reminderTitle sql.NullString
+
+	err := r.db.QueryRow(query, id, userID).Scan(
+		&log.ID, &reminderID, &log.UserID, &recipientsJSON, &log.Subject,
+		&log.EmailContent, &log.Status, &errorMessage, &log.SentAt,
+		&log.CreatedAt, &reminderTitle)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("email log not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get email log: %w", err)
+	}
+
+	if err := json.Unmarshal([]byte(recipientsJSON), &log.Recipients); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal recipients: %w", err)
+	}
+
+	if reminderID.Valid {
+		log.ReminderID = &reminderID.Int64
+	}
+
+	if errorMessage.Valid {
+		log.ErrorMessage = &errorMessage.String
+	}
+
+	if reminderTitle.Valid {
+		log.ReminderTitle = reminderTitle.String
+	}
+
+	return log, nil
+}
+
+func (r *SQLiteRepository) GetEmailLogs(filter *models.EmailHistoryFilter) (*models.EmailHistoryResult, error) {
+	// Build WHERE clause dynamically based on filter parameters
+	whereConditions := []string{"el.user_id = ?"}
+	args := []interface{}{filter.UserID}
+
+	if filter.ReminderID != nil {
+		whereConditions = append(whereConditions, "el.reminder_id = ?")
+		args = append(args, *filter.ReminderID)
+	}
+
+	if filter.Status != "" {
+		whereConditions = append(whereConditions, "el.status = ?")
+		args = append(args, filter.Status)
+	}
+
+	if filter.StartDate != nil {
+		whereConditions = append(whereConditions, "el.sent_at >= ?")
+		args = append(args, *filter.StartDate)
+	}
+
+	if filter.EndDate != nil {
+		whereConditions = append(whereConditions, "el.sent_at <= ?")
+		args = append(args, *filter.EndDate)
+	}
+
+	whereClause := ""
+	if len(whereConditions) > 0 {
+		whereClause = "WHERE " + whereConditions[0]
+		for i := 1; i < len(whereConditions); i++ {
+			whereClause += " AND " + whereConditions[i]
+		}
+	}
+
+	// Get total count
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM email_logs el %s`, whereClause)
+	var totalCount int
+	err := r.db.QueryRow(countQuery, args...).Scan(&totalCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count email logs: %w", err)
+	}
+
+	// Calculate pagination
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := filter.PageSize
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
+	totalPages := (totalCount + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	// Get paginated logs with LEFT JOIN
+	query := fmt.Sprintf(`SELECT el.id, el.reminder_id, el.user_id, el.recipients, el.subject, 
+		el.email_content, el.status, el.error_message, el.sent_at, el.created_at, r.title
+		FROM email_logs el
+		LEFT JOIN reminders r ON el.reminder_id = r.id
+		%s
+		ORDER BY el.sent_at DESC
+		LIMIT ? OFFSET ?`, whereClause)
+
+	args = append(args, pageSize, offset)
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get email logs: %w", err)
+	}
+	defer rows.Close()
+
+	var logs []*models.EmailLog
+	for rows.Next() {
+		log := &models.EmailLog{}
+		var recipientsJSON string
+		var reminderID sql.NullInt64
+		var errorMessage sql.NullString
+		var reminderTitle sql.NullString
+
+		err := rows.Scan(&log.ID, &reminderID, &log.UserID, &recipientsJSON, &log.Subject,
+			&log.EmailContent, &log.Status, &errorMessage, &log.SentAt,
+			&log.CreatedAt, &reminderTitle)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan email log: %w", err)
+		}
+
+		if err := json.Unmarshal([]byte(recipientsJSON), &log.Recipients); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal recipients: %w", err)
+		}
+
+		if reminderID.Valid {
+			log.ReminderID = &reminderID.Int64
+		}
+
+		if errorMessage.Valid {
+			log.ErrorMessage = &errorMessage.String
+		}
+
+		if reminderTitle.Valid {
+			log.ReminderTitle = reminderTitle.String
+		}
+
+		logs = append(logs, log)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating email logs: %w", err)
+	}
+
+	result := &models.EmailHistoryResult{
+		Logs:       logs,
+		TotalCount: totalCount,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: totalPages,
+	}
+
+	return result, nil
 }

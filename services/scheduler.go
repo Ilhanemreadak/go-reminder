@@ -204,7 +204,7 @@ func (s *SchedulerService) processReminder(reminder *models.Reminder) error {
 		}
 		
 		// Send email to all recipients
-		err = s.emailService.SendEmail(reminder.Recipients, reminder.Title, reminder.EmailContent, smtpSettings)
+		err = s.emailService.SendEmail(reminder.Recipients, reminder.Title, reminder.EmailContent, smtpSettings, &reminder.ID, reminder.UserID)
 		if err == nil {
 			// Success - update timestamps and schedule next send
 			s.logger.LogEmailSent(reminder.ID, reminder.Recipients, true, nil)

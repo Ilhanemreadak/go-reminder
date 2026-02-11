@@ -13,30 +13,72 @@ import (
 
 // EmailService handles email sending operations
 type EmailService struct {
-	logger *Logger
+	logger         *Logger
+	historyService *EmailHistoryService
 }
 
 // NewEmailService creates a new email service
-func NewEmailService() *EmailService {
+func NewEmailService(historyService *EmailHistoryService) *EmailService {
 	return &EmailService{
-		logger: GetLogger(),
+		logger:         GetLogger(),
+		historyService: historyService,
 	}
 }
 
 // SendEmail sends an email to the specified recipients using SMTP settings
-func (s *EmailService) SendEmail(to []string, subject, body string, settings *models.SMTPSettings) error {
+func (s *EmailService) SendEmail(to []string, subject, body string, settings *models.SMTPSettings, reminderID *int64, userID int64) error {
+	// Log email attempt before sending
+	var logID int64
+	if s.historyService != nil {
+		id, err := s.historyService.LogEmailAttempt(reminderID, userID, to, subject, body)
+		if err != nil {
+			s.logger.Warn("Failed to log email attempt", map[string]interface{}{
+				"user_id":     userID,
+				"reminder_id": reminderID,
+				"error":       err.Error(),
+			})
+			// Continue with send even if logging fails
+		} else {
+			logID = id
+		}
+	}
+
 	if settings == nil {
+		if logID > 0 && s.historyService != nil {
+			if logErr := s.historyService.LogEmailFailure(logID, "SMTP settings cannot be nil"); logErr != nil {
+				s.logger.Warn("Failed to log email failure", map[string]interface{}{
+					"log_id": logID,
+					"error":  logErr.Error(),
+				})
+			}
+		}
 		return fmt.Errorf("SMTP settings cannot be nil")
 	}
 
 	// Validate SMTP settings
 	if err := s.ValidateSMTPSettings(settings); err != nil {
+		if logID > 0 && s.historyService != nil {
+			if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("invalid SMTP settings: %v", err)); logErr != nil {
+				s.logger.Warn("Failed to log email failure", map[string]interface{}{
+					"log_id": logID,
+					"error":  logErr.Error(),
+				})
+			}
+		}
 		return fmt.Errorf("invalid SMTP settings: %w", err)
 	}
 
 	// Validate recipients
 	for _, email := range to {
 		if !s.ValidateEmailAddress(email) {
+			if logID > 0 && s.historyService != nil {
+				if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("invalid email address: %s", email)); logErr != nil {
+					s.logger.Warn("Failed to log email failure", map[string]interface{}{
+						"log_id": logID,
+						"error":  logErr.Error(),
+					})
+				}
+			}
 			return fmt.Errorf("invalid email address: %s", email)
 		}
 	}
@@ -71,6 +113,14 @@ func (s *EmailService) SendEmail(to []string, subject, body string, settings *mo
 				"port":  settings.Port,
 				"error": err.Error(),
 			})
+			if logID > 0 && s.historyService != nil {
+				if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("failed to establish TLS connection: %v", err)); logErr != nil {
+					s.logger.Warn("Failed to log email failure", map[string]interface{}{
+						"log_id": logID,
+						"error":  logErr.Error(),
+					})
+				}
+			}
 			return fmt.Errorf("failed to establish TLS connection: %w", err)
 		}
 		defer conn.Close()
@@ -81,6 +131,14 @@ func (s *EmailService) SendEmail(to []string, subject, body string, settings *mo
 				"host":  settings.Host,
 				"error": err.Error(),
 			})
+			if logID > 0 && s.historyService != nil {
+				if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("failed to create SMTP client: %v", err)); logErr != nil {
+					s.logger.Warn("Failed to log email failure", map[string]interface{}{
+						"log_id": logID,
+						"error":  logErr.Error(),
+					})
+				}
+			}
 			return fmt.Errorf("failed to create SMTP client: %w", err)
 		}
 	} else {
@@ -92,6 +150,14 @@ func (s *EmailService) SendEmail(to []string, subject, body string, settings *mo
 				"port":  settings.Port,
 				"error": err.Error(),
 			})
+			if logID > 0 && s.historyService != nil {
+				if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("failed to connect to SMTP server: %v", err)); logErr != nil {
+					s.logger.Warn("Failed to log email failure", map[string]interface{}{
+						"log_id": logID,
+						"error":  logErr.Error(),
+					})
+				}
+			}
 			return fmt.Errorf("failed to connect to SMTP server: %w", err)
 		}
 		defer conn.Close()
@@ -102,6 +168,14 @@ func (s *EmailService) SendEmail(to []string, subject, body string, settings *mo
 				"host":  settings.Host,
 				"error": err.Error(),
 			})
+			if logID > 0 && s.historyService != nil {
+				if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("failed to create SMTP client: %v", err)); logErr != nil {
+					s.logger.Warn("Failed to log email failure", map[string]interface{}{
+						"log_id": logID,
+						"error":  logErr.Error(),
+					})
+				}
+			}
 			return fmt.Errorf("failed to create SMTP client: %w", err)
 		}
 
@@ -116,12 +190,30 @@ func (s *EmailService) SendEmail(to []string, subject, body string, settings *mo
 						"host":  settings.Host,
 						"error": err.Error(),
 					})
+					if logID > 0 && s.historyService != nil {
+						if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("failed to start TLS: %v", err)); logErr != nil {
+							s.logger.Warn("Failed to log email failure", map[string]interface{}{
+								"log_id": logID,
+								"error":  logErr.Error(),
+							})
+						}
+					}
 					return fmt.Errorf("failed to start TLS: %w", err)
 				}
 			} else {
-				s.logger.Warn("STARTTLS not supported by server", map[string]interface{}{
+				// STARTTLS not supported but UseTLS is enabled
+				s.logger.Error("STARTTLS not supported by server", map[string]interface{}{
 					"host": settings.Host,
 				})
+				if logID > 0 && s.historyService != nil {
+					if logErr := s.historyService.LogEmailFailure(logID, "STARTTLS not supported by server but TLS is required"); logErr != nil {
+						s.logger.Warn("Failed to log email failure", map[string]interface{}{
+							"log_id": logID,
+							"error":  logErr.Error(),
+						})
+					}
+				}
+				return fmt.Errorf("STARTTLS not supported by server but TLS is required")
 			}
 		}
 	}
@@ -136,18 +228,42 @@ func (s *EmailService) SendEmail(to []string, subject, body string, settings *mo
 				"username": settings.Username,
 				"error":    err.Error(),
 			})
+			if logID > 0 && s.historyService != nil {
+				if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("SMTP authentication failed: %v", err)); logErr != nil {
+					s.logger.Warn("Failed to log email failure", map[string]interface{}{
+						"log_id": logID,
+						"error":  logErr.Error(),
+					})
+				}
+			}
 			return fmt.Errorf("SMTP authentication failed: %w", err)
 		}
 	}
 
 	// Set sender
 	if err := client.Mail(settings.FromEmail); err != nil {
+		if logID > 0 && s.historyService != nil {
+			if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("failed to set sender: %v", err)); logErr != nil {
+				s.logger.Warn("Failed to log email failure", map[string]interface{}{
+					"log_id": logID,
+					"error":  logErr.Error(),
+				})
+			}
+		}
 		return fmt.Errorf("failed to set sender: %w", err)
 	}
 
 	// Set recipients
 	for _, recipient := range to {
 		if err := client.Rcpt(recipient); err != nil {
+			if logID > 0 && s.historyService != nil {
+				if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("failed to set recipient %s: %v", recipient, err)); logErr != nil {
+					s.logger.Warn("Failed to log email failure", map[string]interface{}{
+						"log_id": logID,
+						"error":  logErr.Error(),
+					})
+				}
+			}
 			return fmt.Errorf("failed to set recipient %s: %w", recipient, err)
 		}
 	}
@@ -155,23 +271,66 @@ func (s *EmailService) SendEmail(to []string, subject, body string, settings *mo
 	// Send message body
 	writer, err := client.Data()
 	if err != nil {
+		if logID > 0 && s.historyService != nil {
+			if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("failed to open data writer: %v", err)); logErr != nil {
+				s.logger.Warn("Failed to log email failure", map[string]interface{}{
+					"log_id": logID,
+					"error":  logErr.Error(),
+				})
+			}
+		}
 		return fmt.Errorf("failed to open data writer: %w", err)
 	}
 
 	_, err = writer.Write([]byte(message))
 	if err != nil {
 		writer.Close()
+		if logID > 0 && s.historyService != nil {
+			if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("failed to write message: %v", err)); logErr != nil {
+				s.logger.Warn("Failed to log email failure", map[string]interface{}{
+					"log_id": logID,
+					"error":  logErr.Error(),
+				})
+			}
+		}
 		return fmt.Errorf("failed to write message: %w", err)
 	}
 
 	err = writer.Close()
 	if err != nil {
+		if logID > 0 && s.historyService != nil {
+			if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("failed to close data writer: %v", err)); logErr != nil {
+				s.logger.Warn("Failed to log email failure", map[string]interface{}{
+					"log_id": logID,
+					"error":  logErr.Error(),
+				})
+			}
+		}
 		return fmt.Errorf("failed to close data writer: %w", err)
 	}
 
 	// Send QUIT command
 	if err := client.Quit(); err != nil {
+		if logID > 0 && s.historyService != nil {
+			if logErr := s.historyService.LogEmailFailure(logID, fmt.Sprintf("failed to quit SMTP session: %v", err)); logErr != nil {
+				s.logger.Warn("Failed to log email failure", map[string]interface{}{
+					"log_id": logID,
+					"error":  logErr.Error(),
+				})
+			}
+		}
 		return fmt.Errorf("failed to quit SMTP session: %w", err)
+	}
+
+	// Log success after successful send
+	if logID > 0 && s.historyService != nil {
+		if err := s.historyService.LogEmailSuccess(logID); err != nil {
+			s.logger.Warn("Failed to log email success", map[string]interface{}{
+				"log_id": logID,
+				"error":  err.Error(),
+			})
+			// Don't fail the send operation if logging fails
+		}
 	}
 
 	return nil
@@ -290,6 +449,9 @@ func (s *EmailService) TestSMTPConnection(settings *models.SMTPSettings) error {
 				if err := client.StartTLS(tlsConfig); err != nil {
 					return fmt.Errorf("STARTTLS failed: %w", err)
 				}
+			} else {
+				// STARTTLS not supported but UseTLS is enabled
+				return fmt.Errorf("STARTTLS not supported by server but TLS is required")
 			}
 		}
 	}

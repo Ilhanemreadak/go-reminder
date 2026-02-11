@@ -99,7 +99,11 @@ func TestListReminders(t *testing.T) {
 
 	// Create handler
 	reminderService := services.NewReminderService(repo)
-	templates := template.Must(template.ParseGlob("../templates/*.html"))
+	funcMap := template.FuncMap{
+		"sub": func(a, b int) int { return a - b },
+		"add": func(a, b int) int { return a + b },
+	}
+	templates := template.Must(template.New("").Funcs(funcMap).ParseGlob("../templates/*.html"))
 	handler := NewReminderHandler(reminderService, templates)
 
 	// Create request with session cookie
@@ -140,7 +144,11 @@ func TestCreateReminder(t *testing.T) {
 
 	// Create handler
 	reminderService := services.NewReminderService(repo)
-	templates := template.Must(template.ParseGlob("../templates/*.html"))
+	funcMap := template.FuncMap{
+		"sub": func(a, b int) int { return a - b },
+		"add": func(a, b int) int { return a + b },
+	}
+	templates := template.Must(template.New("").Funcs(funcMap).ParseGlob("../templates/*.html"))
 	handler := NewReminderHandler(reminderService, templates)
 
 	// Create form data

@@ -42,9 +42,11 @@ func (h *ReminderHandler) ListReminders(w http.ResponseWriter, r *http.Request) 
 
 	// Prepare template data
 	data := map[string]interface{}{
-		"User":      user,
-		"Reminders": reminders,
-		"Success":   r.URL.Query().Get("success"),
+		"User":            user,
+		"IsAuthenticated": true,
+		"ActivePage":      "reminders",
+		"Reminders":       reminders,
+		"Success":         r.URL.Query().Get("success"),
 	}
 
 	// Render template
@@ -67,9 +69,11 @@ func (h *ReminderHandler) NewReminderForm(w http.ResponseWriter, r *http.Request
 
 	// Prepare template data
 	data := map[string]interface{}{
-		"User":     user,
-		"Reminder": &models.Reminder{}, // Empty reminder for new form
-		"IsEdit":   false,
+		"User":            user,
+		"IsAuthenticated": true,
+		"ActivePage":      "reminders",
+		"Reminder":        &models.Reminder{}, // Empty reminder for new form
+		"IsEdit":          false,
 	}
 
 	// Render template
@@ -117,9 +121,11 @@ func (h *ReminderHandler) EditReminderForm(w http.ResponseWriter, r *http.Reques
 
 	// Prepare template data
 	data := map[string]interface{}{
-		"User":     user,
-		"Reminder": reminder,
-		"IsEdit":   true,
+		"User":            user,
+		"IsAuthenticated": true,
+		"ActivePage":      "reminders",
+		"Reminder":        reminder,
+		"IsEdit":          true,
 	}
 
 	// Render template
@@ -184,10 +190,12 @@ func (h *ReminderHandler) CreateReminder(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		// Display validation errors on form
 		data := map[string]interface{}{
-			"User":     user,
-			"Reminder": reminder,
-			"IsEdit":   false,
-			"Error":    err.Error(),
+			"User":            user,
+			"IsAuthenticated": true,
+			"ActivePage":      "reminders",
+			"Reminder":        reminder,
+			"IsEdit":          false,
+			"Error":           err.Error(),
 		}
 		h.templates.ExecuteTemplate(w, "reminder_form.html", data)
 		return
@@ -264,10 +272,12 @@ func (h *ReminderHandler) UpdateReminder(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		// Display validation errors on form
 		data := map[string]interface{}{
-			"User":     user,
-			"Reminder": reminder,
-			"IsEdit":   true,
-			"Error":    err.Error(),
+			"User":            user,
+			"IsAuthenticated": true,
+			"ActivePage":      "reminders",
+			"Reminder":        reminder,
+			"IsEdit":          true,
+			"Error":           err.Error(),
 		}
 		h.templates.ExecuteTemplate(w, "reminder_form.html", data)
 		return

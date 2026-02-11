@@ -75,6 +75,16 @@ func (m *mockReminderRepo) GetSMTPSettings(userID int64) (*models.SMTPSettings, 
 	return nil, nil
 }
 func (m *mockReminderRepo) UpsertSMTPSettings(settings *models.SMTPSettings) error { return nil }
+func (m *mockReminderRepo) CreateEmailLog(log *models.EmailLog) (int64, error)     { return 1, nil }
+func (m *mockReminderRepo) UpdateEmailLogStatus(id int64, status string, errorMessage *string, sentAt time.Time) error {
+	return nil
+}
+func (m *mockReminderRepo) GetEmailLog(id int64, userID int64) (*models.EmailLog, error) {
+	return nil, nil
+}
+func (m *mockReminderRepo) GetEmailLogs(filter *models.EmailHistoryFilter) (*models.EmailHistoryResult, error) {
+	return nil, nil
+}
 
 func TestValidateReminder_RequiredFields(t *testing.T) {
 	service := NewReminderService(newMockReminderRepo())
