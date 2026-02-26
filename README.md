@@ -253,14 +253,6 @@ go build -o email-reminder-system.exe
 - HTTPS recommended for production deployments
 - XSS protection: HTML escaping applied to email log details
 
-## License
-
-[Your License Here]
-
-## Contributing
-
-[Your Contributing Guidelines Here]
-
 ## Support
 
 For issues and questions, please [open an issue](link-to-issues).
